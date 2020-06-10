@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-type CultureLecture struct {
+type cultureLecture struct {
 	storeName     string
 	title         string // 강좌명
 	teacher       string // 강사명
@@ -37,12 +37,12 @@ type extractedJob struct {
 }
 
 func main() {
-	c := make(chan []CultureLecture)
+	c := make(chan []cultureLecture)
 
-	go scrapeEmartCultureLecture(c)
-	go scrapeLottemartCultureLecture(c)
+	//go scrapeEmartCultureLecture(c)
+	go scrapeLotteCultureLecture(c)
 
-	var cultureLectures []CultureLecture
+	var cultureLectures []cultureLecture
 	for i := 0; i < 1; i++ {
 		cultureLecture := <-c
 		cultureLectures = append(cultureLectures, cultureLecture...)

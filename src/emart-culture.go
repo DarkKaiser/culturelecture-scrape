@@ -39,15 +39,16 @@ var emartGroupCodeMap = map[string]string{
 	"50": "8주 단기 강좌",
 }
 
-func scrapeEmartCultureLecture(mainC chan<- []CultureLecture) {
-	c := make(chan CultureLecture)
+func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
+	c := make(chan cultureLecture)
 
 	count := 0
 	for storeCode, storeName := range emartStoreCodeMap {
 		for groupCode, _ := range emartGroupCodeMap {
-			cultureLecturePageURL := emartCultureBaseURL + "/lecture/lecture/list?year_code=" + emartSearchYearCode + "&smst_code=" + emartSearchSmstCode + "&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=" + storeCode + "&group_code=" + groupCode + "&lect_name="
+			// @@@@@ 병렬처리
+			clPageURL := emartCultureBaseURL + "/lecture/lecture/list?year_code=" + emartSearchYearCode + "&smst_code=" + emartSearchSmstCode + "&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=" + storeCode + "&group_code=" + groupCode + "&lect_name="
 
-			res, err := http.Get(cultureLecturePageURL)
+			res, err := http.Get(clPageURL)
 			checkErr(err)
 			checkStatusCode(res)
 
@@ -56,15 +57,15 @@ func scrapeEmartCultureLecture(mainC chan<- []CultureLecture) {
 			doc, err := goquery.NewDocumentFromReader(res.Body)
 			checkErr(err)
 
-			cultureLectureSelection := doc.Find("div.board_list > table > tbody > tr")
-			cultureLectureSelection.Each(func(i int, s *goquery.Selection) {
+			clSelection := doc.Find("div.board_list > table > tbody > tr")
+			clSelection.Each(func(i int, s *goquery.Selection) {
 				count += 1
-				go extractEmartCultureLecture(cultureLecturePageURL, storeName, s, c)
+				go extractEmartCultureLecture(clPageURL, storeName, s, c)
 			})
 		}
 	}
 
-	var cultureLectures []CultureLecture
+	var cultureLectures []cultureLecture
 	for i := 0; i < count; i++ {
 		cultureLecture := <-c
 		if len(cultureLecture.title) > 0 {
@@ -77,9 +78,9 @@ func scrapeEmartCultureLecture(mainC chan<- []CultureLecture) {
 	fmt.Println("이마트 문화센터 강좌 수집이 완료되었습니다.")
 }
 
-func extractEmartCultureLecture(cultureLecturePageURL string, storeName string, s *goquery.Selection, c chan<- CultureLecture) {
+func extractEmartCultureLecture(cultureLecturePageURL string, storeName string, s *goquery.Selection, c chan<- cultureLecture) {
 	if cleanString(s.Text()) == "검색된 강좌가 없습니다." {
-		c <- CultureLecture{}
+		c <- cultureLecture{}
 	} else {
 		// @@@@@
 		if s.Find("td").Length() != 5 {
@@ -93,7 +94,7 @@ func extractEmartCultureLecture(cultureLecturePageURL string, storeName string, 
 		//time := cleanString(ss.Eq(2).Text())
 		//won := cleanString(ss.Eq(3).Text())
 
-		c <- CultureLecture{
+		c <- cultureLecture{
 			storeName: storeName,
 			title:     title,
 			//href:      href,
