@@ -1,19 +1,20 @@
 package main
 
 import (
-	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"log"
 	"net/http"
+	"strconv"
+	"sync"
 )
 
 const (
 	emartCultureBaseURL string = "http://culture.emart.com"
 
-	// 검색 년도
+	// 검색년도
 	emartSearchYearCode string = "2020"
 
-	// 검색 시즌(S1 ~ S4)
+	// 검색시즌(S1 ~ S4)
 	emartSearchSmstCode string = "S2"
 )
 
@@ -40,30 +41,40 @@ var emartGroupCodeMap = map[string]string{
 }
 
 func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
+	log.Println("이마트 문화센터 강좌 수집을 시작합니다.(검색조건:" + emartSearchYearCode + "년도 " + emartSearchSmstCode + ")")
+
+	var wait sync.WaitGroup
+
 	c := make(chan cultureLecture)
 
 	count := 0
 	for storeCode, storeName := range emartStoreCodeMap {
 		for groupCode, _ := range emartGroupCodeMap {
-			// @@@@@ 병렬처리
-			clPageURL := emartCultureBaseURL + "/lecture/lecture/list?year_code=" + emartSearchYearCode + "&smst_code=" + emartSearchSmstCode + "&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=" + storeCode + "&group_code=" + groupCode + "&lect_name="
+			wait.Add(1)
+			go func(storeCode string, storeName string, groupCode string) {
+				defer wait.Done()
 
-			res, err := http.Get(clPageURL)
-			checkErr(err)
-			checkStatusCode(res)
+				clPageURL := emartCultureBaseURL + "/lecture/lecture/list?year_code=" + emartSearchYearCode + "&smst_code=" + emartSearchSmstCode + "&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=" + storeCode + "&group_code=" + groupCode + "&lect_name="
 
-			defer res.Body.Close()
+				res, err := http.Get(clPageURL)
+				checkErr(err)
+				checkStatusCode(res)
 
-			doc, err := goquery.NewDocumentFromReader(res.Body)
-			checkErr(err)
+				defer res.Body.Close()
 
-			clSelection := doc.Find("div.board_list > table > tbody > tr")
-			clSelection.Each(func(i int, s *goquery.Selection) {
-				count += 1
-				go extractEmartCultureLecture(clPageURL, storeName, s, c)
-			})
+				doc, err := goquery.NewDocumentFromReader(res.Body)
+				checkErr(err)
+
+				clSelection := doc.Find("div.board_list > table > tbody > tr")
+				clSelection.Each(func(i int, s *goquery.Selection) {
+					count += 1
+					go extractEmartCultureLecture(clPageURL, storeName, s, c)
+				})
+			}(storeCode, storeName, groupCode)
 		}
 	}
+
+	wait.Wait()
 
 	var cultureLectures []cultureLecture
 	for i := 0; i < count; i++ {
@@ -73,18 +84,18 @@ func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
 		}
 	}
 
-	mainC <- cultureLectures
+	log.Println("이마트 문화센터 강좌 수집이 완료되었습니다. 총 " + strconv.Itoa(len(cultureLectures)) + "개의 강좌가 수집되었습니다.")
 
-	fmt.Println("이마트 문화센터 강좌 수집이 완료되었습니다.")
+	mainC <- cultureLectures
 }
 
-func extractEmartCultureLecture(cultureLecturePageURL string, storeName string, s *goquery.Selection, c chan<- cultureLecture) {
+func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.Selection, c chan<- cultureLecture) {
 	if cleanString(s.Text()) == "검색된 강좌가 없습니다." {
 		c <- cultureLecture{}
 	} else {
 		// @@@@@
 		if s.Find("td").Length() != 5 {
-			log.Fatalln("Request failed with Status:", cultureLecturePageURL)
+			log.Fatalln("Request failed with Status:", clPageURL)
 		}
 
 		title := cleanString(s.Find("td > a").Text())
