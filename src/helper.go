@@ -8,13 +8,13 @@ import (
 
 func checkErr(err error) {
 	if err != nil {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 }
 
 func checkStatusCode(res *http.Response) {
 	if res.StatusCode != 200 {
-		log.Fatalln("Request failed with Status:", res.StatusCode)
+		log.Panicln("Request failed with Status:", res.StatusCode)
 	}
 }
 

@@ -40,7 +40,8 @@ func main() {
 	c := make(chan []cultureLecture)
 
 	//go scrapeEmartCultureLecture(c)
-	go scrapeLottemartCultureLecture(c)
+	//go scrapeLottemartCultureLecture(c)
+	go scrapeHomeplusCultureLecture(c)
 
 	var cultureLectures []cultureLecture
 	for i := 0; i < 1; i++ {

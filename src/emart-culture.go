@@ -45,7 +45,7 @@ func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
 
 	var wait sync.WaitGroup
 
-	c := make(chan cultureLecture)
+	c := make(chan cultureLecture, 10)
 
 	count := 0
 	for storeCode, storeName := range emartStoreCodeMap {
