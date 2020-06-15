@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	homeplusCultureBaseURL string = "http://school.homeplus.co.kr"
+	homeplusCultureBaseURL = "http://school.homeplus.co.kr"
 )
 
 /*
@@ -41,7 +41,7 @@ type homeplusLectureSearchPostData struct {
  * Convert JSON to Go struct : https://mholt.github.io/json-to-go/
  */
 type homeplusLectureSearchResults struct {
-	lectureData []lectureData `json:"d"`
+	LectureData []lectureData `json:"d"`
 }
 
 type lectureData struct {
@@ -128,13 +128,13 @@ func scrapeHomeplusCultureLecture(mainC chan<- []cultureLecture) {
 				err = json.Unmarshal(resBodyBytes, &lectureSearchResult)
 				checkErr(err)
 
-				if len(lectureSearchResult.lectureData) == 0 {
+				if len(lectureSearchResult.LectureData) == 0 {
 					break
 				}
 
-				for i := range lectureSearchResult.lectureData {
+				for i := range lectureSearchResult.LectureData {
 					count += 1
-					go extractHomeplusCultureLecture(clPageURL, storeName, lectureSearchResult.lectureData[i], c)
+					go extractHomeplusCultureLecture(clPageURL, storeName, lectureSearchResult.LectureData[i], c)
 				}
 
 				m += 1
@@ -159,30 +159,29 @@ func scrapeHomeplusCultureLecture(mainC chan<- []cultureLecture) {
 func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m int, n int) *homeplusLectureSearchPostData {
 	lspd := homeplusLectureSearchPostData{}
 
-	lspd.Param[0] = "H" // H : 홈페이지, M : 모바일
-	lspd.Param[1] = storeCode
-	lspd.Param[2] = ""
-	lspd.Param[3] = ""
-	lspd.Param[4] = ""
-	lspd.Param[5] = groupCode
-	lspd.Param[6] = ""
-	lspd.Param[7] = "" // 일반강좌
-	lspd.Param[8] = "" // 1일특강
-	lspd.Param[9] = "" // 문화행사
-	lspd.Param[10] = ""
-	lspd.Param[11] = ""  // 할인여부
-	lspd.Param[12] = "1" // 전체(''), 접수중('1'), 마감/대기등록('0')
-	lspd.Param[13] = "N" // 정렬(N:기본값, 1:강좌명순, 2:요일/시간순, 3:수강료순, 4:개강임박순, 5:마감임박순)
-	lspd.Param[14] = "http://school.homeplus.co.kr/"
-	lspd.Param[15] = "//imgcdn.homeplus.co.kr/"
-	lspd.Param[16] = strconv.Itoa(m) // 현재 페이지 번호
-	lspd.Param[17] = "20"            // 페이지당 검색할 강좌 갯수
-	//   => 검색할 강좌의 갯수가 너무 많은 경우 500 에러가 발생함
-	lspd.Param[18] = strconv.Itoa(n) // 뒤로 돌아왔을때 기존 페이지 번호
-	lspd.Param[19] = "1"             // 강좌명순(1), 요일*시간순(2), 수강료순(3)
-	lspd.Param[20] = "1"             // 전체(''), 접수중('1'), 마감/대기등록('0')
-	lspd.Param[21] = ""              // 온니강좌
-	lspd.Param[22] = ""              // 테마강좌
+	lspd.Param[0] = "H"                              // H : 홈페이지, M : 모바일
+	lspd.Param[1] = storeCode                        //
+	lspd.Param[2] = ""                               //
+	lspd.Param[3] = ""                               //
+	lspd.Param[4] = ""                               //
+	lspd.Param[5] = groupCode                        //
+	lspd.Param[6] = ""                               //
+	lspd.Param[7] = ""                               // 일반강좌
+	lspd.Param[8] = ""                               // 1일특강
+	lspd.Param[9] = ""                               // 문화행사
+	lspd.Param[10] = ""                              //
+	lspd.Param[11] = ""                              // 할인여부
+	lspd.Param[12] = "1"                             // 전체(''), 접수중('1'), 마감/대기등록('0')
+	lspd.Param[13] = "N"                             // 정렬(N:기본값, 1:강좌명순, 2:요일/시간순, 3:수강료순, 4:개강임박순, 5:마감임박순)
+	lspd.Param[14] = "http://school.homeplus.co.kr/" //
+	lspd.Param[15] = "//imgcdn.homeplus.co.kr/"      //
+	lspd.Param[16] = strconv.Itoa(m)                 // 현재 페이지 번호
+	lspd.Param[17] = "20"                            // 페이지당 검색할 강좌 갯수 => 검색할 강좌의 갯수가 너무 많은 경우 500 에러가 발생함
+	lspd.Param[18] = strconv.Itoa(n)                 // 뒤로 돌아왔을때 기존 페이지 번호
+	lspd.Param[19] = "1"                             // 강좌명순(1), 요일*시간순(2), 수강료순(3)
+	lspd.Param[20] = "1"                             // 전체(''), 접수중('1'), 마감/대기등록('0')
+	lspd.Param[21] = ""                              // 온니강좌
+	lspd.Param[22] = ""                              // 테마강좌
 
 	return &lspd
 }
@@ -193,6 +192,7 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectur
 	c <- cultureLecture{
 		storeName: storeName,
 		title:     "1",
+		teacher:   ld.TeacherName,
 		//href:      href,
 		//date:      date,
 		//time:      time,

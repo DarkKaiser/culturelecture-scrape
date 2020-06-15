@@ -5,17 +5,18 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 )
 
 const (
-	emartCultureBaseURL string = "http://culture.emart.com"
+	emartCultureBaseURL = "http://culture.emart.com"
 
 	// 검색년도
-	emartSearchYearCode string = "2020"
+	emartSearchYearCode = "2020"
 
 	// 검색시즌(S1 ~ S4)
-	emartSearchSmstCode string = "S2"
+	emartSearchSmstCode = "S2"
 )
 
 /*
@@ -98,24 +99,34 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 		c <- cultureLecture{}
 	} else {
 		// @@@@@
+		// 강좌 목록에서 열의 갯수가 5개가 아니라면 파싱 에러
 		if s.Find("td").Length() != 5 {
-			log.Fatalln("Request failed with Status:", clPageURL)
+			log.Fatalln("강좌 파싱 에러", clPageURL)
 		}
 
-		title := cleanString(s.Find("td > a").Text())
-		//val, _ := s.Find("td > a").Attr("href")
-		//href := cleanString(val)
-		//date := cleanString(ss.Eq(1).Text())
-		//time := cleanString(ss.Eq(2).Text())
-		//won := cleanString(ss.Eq(3).Text())
+		columns := s.Find("td")
+
+		val, _ := columns.Find("a").Attr("href")
+		val = emartCultureBaseURL + cleanString(val)
+
+		dateTime := cleanString(columns.Eq(2).Text())
+		split := strings.Split(dateTime, "/")
+
+		sd := cleanString(columns.Eq(1).Text())
+		pos1 := strings.Index(sd, "(")
+		pos2 := strings.Index(sd, ")")
 
 		c <- cultureLecture{
-			storeName: storeName,
-			title:     title,
-			//href:      href,
-			//date:      date,
-			//time:      time,
-			//won:       won,
+			storeName:     storeName,
+			title:         cleanString(columns.Find("a").Text()),
+			teacher:       "",
+			startDate:     cleanString(string(sd[0:pos1])),
+			time:          cleanString(split[0]),
+			dayOfTheWeek:  cleanString(split[1]) + "요일",
+			price:         cleanString(columns.Eq(3).Text()),
+			count:         cleanString(string(sd[pos1+1 : pos2])),
+			status:        cleanString(columns.Eq(4).Text()),
+			detailPageUrl: val,
 		}
 	}
 }
