@@ -18,7 +18,9 @@ const (
 	lottemartSearchTermCode string = "202002"
 )
 
-// 점포
+/*
+ * 점포
+ */
 var lottemartStoreCodeMap = map[string]string{
 	"705": "롯데마트 여수점",
 }
@@ -39,7 +41,7 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 			log.Fatalln("롯데마트 문화센터 강좌를 수집하는 중에 전체 페이지 갯수 추출이 실패하였습니다.")
 		}
 
-		// pageInfo 구조
+		// pageinfo 구조
 		// --------------------
 		// 1|5|85|61|0|24
 		//
@@ -113,12 +115,12 @@ func getLottemartCultureLecturePageDocument(pageNo int, storeCode string) (strin
 
 	defer res.Body.Close()
 
-	// 실제로 불러온 데이터는 '<table>' 태그가 포함되어 있지 않고 '<tr>', '<td>'만 있는 형태
-	// 이 형태에서 goquery.NewDocumentFromReader() 함수를 호출하면 '<tr>', '<td>' 태그가 모두 사라지므로 '<table>' 태그를 강제로 붙여준다.
-	resBodyData, err := ioutil.ReadAll(res.Body)
+	resBodyBytes, err := ioutil.ReadAll(res.Body)
 	checkErr(err)
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader("<table>" + string(resBodyData) + "</table>"))
+	// 실제로 불러온 데이터는 '<table>' 태그가 포함되어 있지 않고 '<tr>', '<td>'만 있는 형태
+	// 이 형태에서 goquery.NewDocumentFromReader() 함수를 호출하면 '<tr>', '<td>' 태그가 모두 사라지므로 '<table>' 태그를 강제로 붙여준다.
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader("<table>" + string(resBodyBytes) + "</table>"))
 	checkErr(err)
 
 	return clPageURL, doc

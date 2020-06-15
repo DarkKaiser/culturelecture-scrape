@@ -18,13 +18,17 @@ const (
 	emartSearchSmstCode string = "S2"
 )
 
-// 점포
+/*
+ * 점포
+ */
 var emartStoreCodeMap = map[string]string{
 	"560": "이마트 여수점",
 	"900": "이마트 순천점",
 }
 
-// 강좌군
+/*
+ * 강좌군
+ */
 var emartGroupCodeMap = map[string]string{
 	"10": "엄마랑 아기랑(0~4세)인지/표현",
 	"11": "엄마랑 아기랑(0~4세)예능/신체",
