@@ -1,18 +1,16 @@
 package main
 
 import (
-	"encoding/csv"
-	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"os"
+	"log"
 )
 
 type cultureLecture struct {
 	storeName     string // 점포
 	title         string // 강좌명
 	teacher       string // 강사명
-	startDate     string // 개강일
-	time          string // 시간
+	startDate     string // 개강일(YYYY-MM-DD)
+	startTime     string // 시작시간(hh:mm)
+	endTime       string // 종료시간(hh:mm)
 	dayOfTheWeek  string // 요일
 	price         string // 수강료
 	count         string // 강좌횟수
@@ -20,74 +18,52 @@ type cultureLecture struct {
 	detailPageUrl string // 상세페이지
 }
 
-type extractedJob struct {
-	storeName string
-	groupName string
-
-	title string
-	href  string
-	date  string
-	time  string
-	won   string
-
-	id       string
-	location string
-	salary   string
-	summary  string
-}
-
 func main() {
+	var goroutineCnt = 0
+
+	log.Println("문화센터 강좌 수집을 시작합니다.")
+
 	c := make(chan []cultureLecture)
 
-	//go scrapeEmartCultureLecture(c)
-	//go scrapeLottemartCultureLecture(c)
-	go scrapeHomeplusCultureLecture(c)
+	go scrapeEmartCultureLecture(c)
+	goroutineCnt++
+	go scrapeLottemartCultureLecture(c)
+	goroutineCnt++
+	//go scrapeHomeplusCultureLecture(c)
+	//goroutineCnt++
 
 	var cultureLectures []cultureLecture
-	for i := 0; i < 1; i++ {
-		cultureLectureList := <-c
-		cultureLectures = append(cultureLectures, cultureLectureList...)
+	for i := 0; i < goroutineCnt; i++ {
+		cultureLecturesScraped := <-c
+		cultureLectures = append(cultureLectures, cultureLecturesScraped...)
 	}
 
-	for _, ddd := range cultureLectures {
-		println(ddd.teacher)
-	}
+	log.Println("문화센터 강좌 수집이 완료되었습니다.")
 
-	fmt.Println("수집 작업이 완료되었습니다.")
-}
-
-func extractJob(card *goquery.Selection, c chan<- extractedJob) {
-	//id, _ := card.Attr("data-jk")
-	title := cleanString(card.Find("td > a").Text())
-	fmt.Println(title)
-	//location := cleanString(card.Find(".sjcl").Text())
-	//salary := cleanString(card.Find(".salaryText").Text())
-	//summary := cleanString(card.Find(".summary").Text())
-
-	//c <- extractedJob{
-	//	//id:       id,
-	//	title:    title,
-	//	//location: location,
-	//	//salary:   salary,
-	//	//summary:  summary,
+	// @@@@@
+	//for _, ddd := range cultureLectures {
+	//	println(ddd.detailPageUrl)
 	//}
+
+	writeJobs(cultureLectures)
 }
 
-func writeJobs(jobs []extractedJob) {
-	file, err := os.Create("jobs.csv")
-	checkErr(err)
-
-	w := csv.NewWriter(file)
-	defer w.Flush()
-
-	headers := []string{"Link", "Title", "Location", "Salary", "Summary"}
-
-	wErr := w.Write(headers)
-	checkErr(wErr)
-
-	for _, job := range jobs {
-		jobSlice := []string{"https://kr.indeed.com/viewjob?jk=" + job.id, job.title, job.location, job.salary, job.summary}
-		jwErr := w.Write(jobSlice)
-		checkErr(jwErr)
-	}
+func writeJobs(jobs []cultureLecture) {
+	// @@@@@
+	//file, err := os.Create("jobs.csv")
+	//checkErr(err)
+	//
+	//w := csv.NewWriter(file)
+	//defer w.Flush()
+	//
+	//headers := []string{"Link", "Title", "Location", "Salary", "Summary"}
+	//
+	//wErr := w.Write(headers)
+	//checkErr(wErr)
+	//
+	//for _, job := range jobs {
+	//	jobSlice := []string{"https://kr.indeed.com/viewjob?jk=" + job.id, job.title, job.location, job.salary, job.summary}
+	//	jwErr := w.Write(jobSlice)
+	//	checkErr(jwErr)
+	//}
 }

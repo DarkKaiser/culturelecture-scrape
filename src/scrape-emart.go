@@ -4,12 +4,15 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 )
 
 const (
+	emart = "이마트"
+
 	emartCultureBaseURL = "http://culture.emart.com"
 
 	// 검색년도
@@ -23,8 +26,8 @@ const (
  * 점포
  */
 var emartStoreCodeMap = map[string]string{
-	"560": "이마트 여수점",
-	"900": "이마트 순천점",
+	"560": "여수점",
+	"900": "순천점",
 }
 
 /*
@@ -98,35 +101,66 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 	if cleanString(s.Text()) == "검색된 강좌가 없습니다." {
 		c <- cultureLecture{}
 	} else {
-		// @@@@@
-		// 강좌 목록에서 열의 갯수가 5개가 아니라면 파싱 에러
-		if s.Find("td").Length() != 5 {
-			log.Fatalln("강좌 파싱 에러", clPageURL)
+		// 강좌의 컬럼 개수를 확인한다.
+		ls := s.Find("td")
+		if ls.Length() != 5 {
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:"+strconv.Itoa(ls.Length())+", URL:"+clPageURL+")")
 		}
 
-		columns := s.Find("td")
+		lectureCol1 := cleanString(ls.Eq(0 /* 강좌명 */).Text())
+		lectureCol2 := cleanString(ls.Eq(1 /* 강좌시작일(횟수) */).Text())
+		lectureCol3 := cleanString(ls.Eq(2 /* 강좌시간/요일 */).Text())
+		lectureCol4 := cleanString(ls.Eq(3 /* 수강료 */).Text())
 
-		val, _ := columns.Find("a").Attr("href")
-		val = emartCultureBaseURL + cleanString(val)
+		// 개강일
+		startDate := regexp.MustCompile("[0-9]{4}\\-[0-9]{2}\\-[0-9]{2}").FindString(lectureCol2)
+		if len(strings.TrimSpace(startDate)) == 0 {
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol2+", URL:"+clPageURL+")")
+		}
 
-		dateTime := cleanString(columns.Eq(2).Text())
-		split := strings.Split(dateTime, "/")
+		// 시작시간, 종료시간
+		startTime := regexp.MustCompile("^[0-9]{2}:[0-9]{2}").FindString(lectureCol3)
+		endTime := strings.TrimSpace(regexp.MustCompile(" [0-9]{2}:[0-9]{2} ").FindString(lectureCol3))
+		if len(strings.TrimSpace(startDate)) == 0 || len(strings.TrimSpace(endTime)) == 0 {
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+		}
 
-		sd := cleanString(columns.Eq(1).Text())
-		pos1 := strings.Index(sd, "(")
-		pos2 := strings.Index(sd, ")")
+		// 요일
+		dayOfTheWeek := regexp.MustCompile("[월화수목금토일]+$").FindString(lectureCol3)
+		if len(strings.TrimSpace(dayOfTheWeek)) == 0 {
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+		}
+
+		// 수강료
+		if strings.Contains(lectureCol4, "원") == false {
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
+		}
+
+		// 강좌횟수
+		count := regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol2)
+		if len(strings.TrimSpace(count)) == 0 {
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol2+", URL:"+clPageURL+")")
+		}
+
+		// 접수상태@@@@@
+
+		// 상세페이지
+		detailPageUrl, exists := ls.Eq(0).Find("a").Attr("href")
+		if exists == false {
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
+		}
 
 		c <- cultureLecture{
-			storeName:     storeName,
-			title:         cleanString(columns.Find("a").Text()),
+			storeName:     emart + " " + storeName,
+			title:         lectureCol1,
 			teacher:       "",
-			startDate:     cleanString(string(sd[0:pos1])),
-			time:          cleanString(split[0]),
-			dayOfTheWeek:  cleanString(split[1]) + "요일",
-			price:         cleanString(columns.Eq(3).Text()),
-			count:         cleanString(string(sd[pos1+1 : pos2])),
-			status:        cleanString(columns.Eq(4).Text()),
-			detailPageUrl: val,
+			startDate:     startDate,
+			startTime:     startTime,
+			endTime:       endTime,
+			dayOfTheWeek:  dayOfTheWeek + "요일",
+			price:         lectureCol4,
+			count:         count,
+			detailPageUrl: emartCultureBaseURL + cleanString(detailPageUrl),
 		}
 	}
 }

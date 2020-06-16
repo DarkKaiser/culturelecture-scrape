@@ -6,12 +6,15 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 )
 
 const (
+	lottemart = "롯데마트"
+
 	lottemartCultureBaseURL = "http://culture.lottemart.com"
 
 	// 검색년도 & 검색시즌
@@ -22,7 +25,7 @@ const (
  * 점포
  */
 var lottemartStoreCodeMap = map[string]string{
-	"705": "롯데마트 여수점",
+	"705": "여수점",
 }
 
 func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
@@ -70,7 +73,7 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 				clSelection := doc.Find("tr")
 				clSelection.Each(func(i int, s *goquery.Selection) {
 					count += 1
-					go extractLottemartCultureLecture(clPageURL, storeName, s, c)
+					go extractLottemartCultureLecture(clPageURL, storeCode, storeName, s, c)
 				})
 			}(storeCode, storeName, pageNo)
 		}
@@ -91,34 +94,82 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 	mainC <- cultureLectures
 }
 
-func extractLottemartCultureLecture(clPageURL string, storeName string, s *goquery.Selection, c chan<- cultureLecture) {
-	// @@@@@
-	//println("###", s.Text())
-	if s.Find("td").Length() != 5 {
-		log.Fatalln("강좌 파싱 에러", clPageURL)
+func extractLottemartCultureLecture(clPageURL string, storeCode string, storeName string, s *goquery.Selection, c chan<- cultureLecture) {
+	// 강좌의 컬럼 개수를 확인한다.
+	ls := s.Find("td")
+	if ls.Length() != 5 {
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:"+strconv.Itoa(ls.Length())+", URL:"+clPageURL+")")
 	}
 
-	columns := s.Find("td")
+	lectureCol2 := cleanString(ls.Eq(1 /* 강사명 */).Text())
+	lectureCol3 := cleanString(ls.Eq(2 /* 요일/시간/개강일 */).Text())
+	lectureCol4 := cleanString(ls.Eq(3 /* 수강료 */).Text())
 
-	ddd := cleanString(columns.Eq(2).Text())
-	dddSplit := strings.Split(ddd, " ")
+	// 강좌명
+	lts := ls.Eq(0 /* 강좌명 */).Find("div.info-txt > a")
+	if lts.Length() == 0 {
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(강좌명 <a> 태그를 찾을 수 없습니다, URL:"+clPageURL+")")
+	}
+	title := cleanString(lts.Text())
 
-	price := cleanString(columns.Eq(3).Text())
-	priceSplit := strings.Split(price, " ")
-	cnt := priceSplit[0]
-	pric := priceSplit[len(priceSplit)-1]
+	// 개강일
+	startDate := regexp.MustCompile("[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}$").FindString(lectureCol3)
+	if len(strings.TrimSpace(startDate)) == 0 {
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+	}
+	startDate = strings.ReplaceAll(startDate, ".", "-")
+
+	// 시작시간, 종료시간
+	startTime := strings.TrimSpace(regexp.MustCompile(" [0-9]{2}:[0-9]{2}").FindString(lectureCol3))
+	endTime := strings.TrimSpace(regexp.MustCompile("[0-9]{2}:[0-9]{2} ").FindString(lectureCol3))
+	if len(strings.TrimSpace(startDate)) == 0 || len(strings.TrimSpace(endTime)) == 0 {
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+	}
+
+	// 요일
+	dayOfTheWeek := regexp.MustCompile("\\([월화수목금토일]+").FindString(lectureCol3)
+	if len(strings.TrimSpace(dayOfTheWeek)) == 0 {
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+	}
+	dayOfTheWeek = string([]rune(dayOfTheWeek)[1:])
+
+	// 수강료
+	price := regexp.MustCompile("[0-9,]{1,8}원$").FindString(lectureCol4)
+	if strings.Contains(price, "원") == false {
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
+	}
+
+	// 강좌횟수
+	count := regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol4)
+	if len(strings.TrimSpace(count)) == 0 {
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
+	}
+
+	// 접수상태@@@@@
+
+	// 상세페이지
+	classCode, exists := lts.Attr("onclick")
+	if exists == false {
+		log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
+	}
+	pos1 := strings.Index(classCode, "'")
+	pos2 := strings.LastIndex(classCode, "'")
+	if pos1 == -1 || pos2 == -1 || pos1 == pos2 {
+		log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
+	}
+	classCode = classCode[pos1+1 : pos2]
 
 	c <- cultureLecture{
-		storeName:     storeName,
-		title:         "1",
-		teacher:       cleanString(columns.Eq(1).Text()),
-		startDate:     cleanString(dddSplit[2]),
-		time:          cleanString(dddSplit[1]),
-		dayOfTheWeek:  cleanString(dddSplit[0]) + "요일",
-		price:         cleanString(pric),
-		count:         cleanString(cnt),
-		status:        columns.Eq(4).Find("a").Eq(0).Text(),
-		detailPageUrl: "",
+		storeName:     lottemart + " " + storeName,
+		title:         title,
+		teacher:       lectureCol2,
+		startDate:     startDate,
+		startTime:     startTime,
+		endTime:       endTime,
+		dayOfTheWeek:  dayOfTheWeek + "요일",
+		price:         price,
+		count:         count,
+		detailPageUrl: lottemartCultureBaseURL + "/cu/gus/course/courseinfo/courseview.do?cls_cd=" + classCode + "&is_category_open=N&search_term_cd=" + lottemartSearchTermCode + "&search_str_cd=" + storeCode,
 	}
 }
 

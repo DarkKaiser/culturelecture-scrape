@@ -189,6 +189,18 @@ func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m
 func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectureData, c chan<- cultureLecture) {
 	// @@@@@
 	//println("###", s.Text())
+	// 정규표현식
+	//re1, _ := regexp.Compile("/([0-9]+)\\-([0-9]+)\\-([0-9]+)*\\(([a-zA-Z0-9]*)회\\)/g")
+	//re1, _ := regexp.Compile("([0-9]{4}\\-[0-9]{2}\\-[0-9]{2})")
+	//re1 := regexp.MustCompile("([0-9]{1,5}회)")
+	//s1 := re1.FindString("2020-05-01 (812회)")
+	//println(s1)
+
+	//re1, _ := regexp.Compile("([0-9]+)_*")
+	//s1 := re1.FindAllString(sd, -1)
+	//count, err := strconv.Atoi(s1[3])
+	//checkErr(err)
+
 	c <- cultureLecture{
 		storeName: storeName,
 		title:     "1",
