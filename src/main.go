@@ -28,12 +28,12 @@ func main() {
 	c := make(chan []cultureLecture)
 
 	var goroutineCnt = 0
-	go scrapeEmartCultureLecture(c)
-	goroutineCnt++
-	go scrapeLottemartCultureLecture(c)
-	goroutineCnt++
-	//go scrapeHomeplusCultureLecture(c)
+	//go scrapeEmartCultureLecture(c)
 	//goroutineCnt++
+	//go scrapeLottemartCultureLecture(c)
+	//goroutineCnt++
+	go scrapeHomeplusCultureLecture(c)
+	goroutineCnt++
 
 	var cultureLectures []cultureLecture
 	for i := 0; i < goroutineCnt; i++ {
@@ -45,9 +45,9 @@ func main() {
 
 	// 필터추가
 	// @@@@@
-	//for _, ddd := range cultureLectures {
-	//	println(ddd.teacher)
-	//}
+	for _, ddd := range cultureLectures {
+		println(ddd.detailPageUrl)
+	}
 
 	writeCultureLectures(cultureLectures)
 }

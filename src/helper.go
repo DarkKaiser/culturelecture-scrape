@@ -1,9 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"strconv"
+	"regexp"
 	"strings"
 )
 
@@ -23,9 +24,12 @@ func cleanString(str string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
 }
 
-func conv(str string) int {
-	// @@@@@
-	i, err := strconv.Atoi(strings.ReplaceAll(strings.ReplaceAll(str, "원", ""), ",", ""))
-	checkErr(err)
-	return i
+func formatCommas(num int) string {
+	str := fmt.Sprintf("%d", num)
+	re := regexp.MustCompile("(\\d+)(\\d{3})")
+	for n := ""; n != str; {
+		n = str
+		str = re.ReplaceAllString(str, "$1,$2")
+	}
+	return str
 }

@@ -119,9 +119,9 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 		}
 
 		// 시작시간, 종료시간
-		startTime := regexp.MustCompile("^[0-9]{2}:[0-9]{2}").FindString(lectureCol3)
+		startTime := strings.TrimSpace(regexp.MustCompile("^[0-9]{2}:[0-9]{2}").FindString(lectureCol3))
 		endTime := strings.TrimSpace(regexp.MustCompile(" [0-9]{2}:[0-9]{2} ").FindString(lectureCol3))
-		if len(strings.TrimSpace(startDate)) == 0 || len(strings.TrimSpace(endTime)) == 0 {
+		if len(startDate) == 0 || len(endTime) == 0 {
 			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
 		}
 
