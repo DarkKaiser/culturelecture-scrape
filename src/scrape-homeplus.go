@@ -10,6 +10,8 @@ import (
 )
 
 const (
+	homeplus = "홈플러스"
+
 	homeplusCultureBaseURL = "http://school.homeplus.co.kr"
 )
 
@@ -17,9 +19,9 @@ const (
  * 점포
  */
 var homeplusStoreCodeMap = map[string]string{
-	"0035": "홈플러스 광양점",
-	"1009": "홈플러스 순천풍덕점",
-	"0030": "홈플러스 순천점",
+	"0035": "광양점",
+	"1009": "순천풍덕점",
+	"0030": "순천점",
 }
 
 /*
@@ -201,13 +203,56 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectur
 	//count, err := strconv.Atoi(s1[3])
 	//checkErr(err)
 
+	//Type                  string `json:"__type"`
+	//ROWNUMBER             string `json:"ROWNUMBER"`
+	//MAXCNT                string `json:"MAX_CNT"`
+	//LectureName           string `json:"LectureName"`
+	//LectureSubType        string `json:"LectureSubType"`
+	//LectureType           string `json:"LectureType"`
+	//LectureBaseID         string `json:"LectureBaseID"`
+	//LectureTargetName     string `json:"LectureTargetName"`
+	//LectureTargetNameCode string `json:"LectureTargetNameCode"`
+	//LectureGroupName      string `json:"LectureGroupName"`
+	//LectureGroupNameCode  string `json:"LectureGroupNameCode"`
+	//SubLectureName1       string `json:"SubLectureName1"`
+	//SubLectureName2       string `json:"SubLectureName2"`
+	//AgeLectureFr          string `json:"AgeLectureFr"`
+	//AgeLectureTo          string `json:"AgeLectureTo"`
+	//DateLectureFrTo       string `json:"DateLectureFrTo"`
+	//TuitionFee            string `json:"TuitionFee"`
+	//TuitionFeeDC          string `json:"TuitionFeeDC"`
+	//IsShowDcFee           string `json:"IsShowDcFee"`
+	//MaterialCost          string `json:"MaterialCost"`
+	//TextBook              string `json:"TextBook"`
+	//LectureRoomName       string `json:"LectureRoomName"`
+	//MinMember             string `json:"MinMember"`
+	//LimitCancel           string `json:"LimitCancel"`
+	//LectureInfo           string `json:"LectureInfo"`
+	//LectureDesc           string `json:"LectureDesc"`
+	//YYYY                  string `json:"YYYY"`
+	//Season                string `json:"Season"`
+	//LectureMasterID       string `json:"LectureMasterID"`
+	//IsOnlyLecture         string `json:"IsOnlyLecture"`
+	//DCValue               string `json:"DCValue"`
+	//AdmitLimitType        string `json:"AdmitLimitType"`
+	//AdmitLimit            string `json:"AdmitLimit"`
+	//RegStatus             string `json:"RegStatus"`
+	//DisplayToWeb          string `json:"DisplayToWeb"`
+	//LectureTime           string `json:"LectureTime"`
+	//LectureDay            string `json:"LectureDay"`
+	//LectureCount          string `json:"LectureCount"`
+	//ClassCount            string `json:"ClassCount"`
+	//IconSrc               string `json:"IconSrc"`
+	//LectureStatus         string `json:"LectureStatus"`
+	//ImgSrc                string `json:"ImgSrc"`
+	//AdmitValid            string `json:"AdmitValid"`
+	//DeadLine              string `json:"DeadLine"`
+	println(ld.StoreCode, ld.StoreName)
+
 	c <- cultureLecture{
-		storeName: storeName,
-		title:     "1",
+		storeName: homeplus + " " + storeName,
 		teacher:   ld.TeacherName,
-		//href:      href,
-		//date:      date,
-		//time:      time,
-		//won:       won,
+
+		title: "1",
 	}
 }
