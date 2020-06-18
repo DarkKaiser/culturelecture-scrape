@@ -205,8 +205,6 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectur
 	//count, err := strconv.Atoi(s1[3])
 	//checkErr(err)
 
-	//Type                  string `json:"__type"`
-	//ROWNUMBER             string `json:"ROWNUMBER"`
 	//MAXCNT                string `json:"MAX_CNT"`
 	//LectureSubType        string `json:"LectureSubType"`
 	//LectureType           string `json:"LectureType"`
@@ -215,13 +213,7 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectur
 	//LectureTargetNameCode string `json:"LectureTargetNameCode"`
 	//LectureGroupName      string `json:"LectureGroupName"`
 	//LectureGroupNameCode  string `json:"LectureGroupNameCode"`
-	//AgeLectureFr          string `json:"AgeLectureFr"`
-	//AgeLectureTo          string `json:"AgeLectureTo"`
-	//MaterialCost          string `json:"MaterialCost"`
-	//TextBook              string `json:"TextBook"`
 	//LectureRoomName       string `json:"LectureRoomName"`
-	//MinMember             string `json:"MinMember"`
-	//LimitCancel           string `json:"LimitCancel"`
 	//LectureInfo           string `json:"LectureInfo"`
 	//LectureDesc           string `json:"LectureDesc"`
 	//YYYY                  string `json:"YYYY"`
@@ -238,7 +230,7 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectur
 	//LectureStatus         string `json:"LectureStatus"`
 	//ImgSrc                string `json:"ImgSrc"`
 	//AdmitValid            string `json:"AdmitValid"`
-	//DeadLine              string `json:"DeadLine"`
+	//DeadLine              string `json:"DeadLine"` 마감임박
 	//println(ld.LectureTime)
 
 	// 강좌명@@@@@

@@ -18,7 +18,7 @@ const (
 	lottemartCultureBaseURL = "http://culture.lottemart.com"
 
 	// 검색년도 & 검색시즌
-	lottemartSearchTermCode = "202002"
+	lottemartSearchTermCode = SearchYear + "0" + SearchSeasonCode
 )
 
 /*
@@ -44,7 +44,8 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 			log.Fatalln("롯데마트 문화센터 강좌를 수집하는 중에 전체 페이지 갯수 추출이 실패하였습니다.")
 		}
 
-		// pageinfo 구조
+		// --------------------
+		// pageinfo 값 형식
 		// --------------------
 		// 1|5|85|61|0|24
 		//
@@ -59,11 +60,11 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 			log.Fatalln("롯데마트 문화센터 강좌를 수집하는 중에 전체 페이지 갯수 추출이 실패하였습니다.(pageinfo:" + pi + ")")
 		}
 
-		pageCount, err := strconv.Atoi(piArray[1])
+		totalPageCount, err := strconv.Atoi(piArray[1])
 		checkErr(err)
 
 		// 강좌 데이터를 수집한다.
-		for pageNo := 1; pageNo <= pageCount; pageNo++ {
+		for pageNo := 1; pageNo <= totalPageCount; pageNo++ {
 			wait.Add(1)
 			go func(storeCode string, storeName string, pageNo int) {
 				defer wait.Done()
@@ -113,8 +114,8 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	title := cleanString(lts.Text())
 
 	// 개강일
-	startDate := regexp.MustCompile("[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}$").FindString(lectureCol3)
-	if len(strings.TrimSpace(startDate)) == 0 {
+	startDate := strings.TrimSpace(regexp.MustCompile("[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}$").FindString(lectureCol3))
+	if len(startDate) == 0 {
 		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
 	}
 	startDate = strings.ReplaceAll(startDate, ".", "-")
@@ -127,8 +128,8 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	}
 
 	// 요일
-	dayOfTheWeek := regexp.MustCompile("\\([월화수목금토일]+").FindString(lectureCol3)
-	if len(strings.TrimSpace(dayOfTheWeek)) == 0 {
+	dayOfTheWeek := strings.TrimSpace(regexp.MustCompile("\\([월화수목금토일]+").FindString(lectureCol3))
+	if len(dayOfTheWeek) == 0 {
 		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
 	}
 	dayOfTheWeek = string([]rune(dayOfTheWeek)[1:])
@@ -140,8 +141,8 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	}
 
 	// 강좌횟수
-	count := regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol4)
-	if len(strings.TrimSpace(count)) == 0 {
+	count := strings.TrimSpace(regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol4))
+	if len(count) == 0 {
 		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
 	}
 
@@ -150,12 +151,12 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	// 상세페이지
 	classCode, exists := lts.Attr("onclick")
 	if exists == false {
-		log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
 	}
 	pos1 := strings.Index(classCode, "'")
 	pos2 := strings.LastIndex(classCode, "'")
 	if pos1 == -1 || pos2 == -1 || pos1 == pos2 {
-		log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
 	}
 	classCode = classCode[pos1+1 : pos2]
 

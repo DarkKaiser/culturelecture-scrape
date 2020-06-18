@@ -5,7 +5,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
+)
+
+const (
+	/********************************************************************************/
+	/* 강좌 수집 작업시에 변경되는 값                                                    */
+	/****************************************************************************** */
+	// 검색년도
+	SearchYear = "2020"
+
+	// 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
+	SearchSeasonCode = "2"
+	/********************************************************************************/
 )
 
 type cultureLecture struct {
@@ -25,36 +38,41 @@ type cultureLecture struct {
 func main() {
 	log.Println("문화센터 강좌 수집을 시작합니다.")
 
-	c := make(chan []cultureLecture)
+	c := make(chan []cultureLecture, 3)
 
-	var goroutineCnt = 0
-	//go scrapeEmartCultureLecture(c)
+	var goRoutineCount = 0
+	go scrapeEmartCultureLecture(c)
+	goRoutineCount++
+	go scrapeLottemartCultureLecture(c)
+	goRoutineCount++
+	//go scrapeHomeplusCultureLecture(c)
 	//goroutineCnt++
-	//go scrapeLottemartCultureLecture(c)
-	//goroutineCnt++
-	go scrapeHomeplusCultureLecture(c)
-	goroutineCnt++
 
 	var cultureLectures []cultureLecture
-	for i := 0; i < goroutineCnt; i++ {
+	for i := 0; i < goRoutineCount; i++ {
 		cultureLecturesScraped := <-c
 		cultureLectures = append(cultureLectures, cultureLecturesScraped...)
 	}
 
-	log.Println("문화센터 강좌 수집이 완료되었습니다. 파일로 저장합니다.")
+	log.Println("문화센터 강좌 수집이 완료되었습니다. 총 " + strconv.Itoa(len(cultureLectures)) + "개의 강좌가 수집되었습니다.")
 
 	// 필터추가
+	// 평일 4시 이전 강좌는 모두 제외
+	// 개월수/나이에 포함되지 않으면 제외
+	// 접수상태
 	// @@@@@
-	for _, ddd := range cultureLectures {
-		println(ddd.detailPageUrl)
-	}
+	//for _, ddd := range cultureLectures {
+	//	println(ddd.detailPageUrl)
+	//}
 
 	writeCultureLectures(cultureLectures)
 }
 
 func writeCultureLectures(cultureLectures []cultureLecture) {
-	t := time.Now()
-	fName := fmt.Sprintf("cultureLecture-%d%02d%02d%02d%02d%02d.csv", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+	log.Println("수집된 문화센터 강좌 자료를 파일로 저장합니다.")
+
+	now := time.Now()
+	fName := fmt.Sprintf("cultureLecture-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
 
 	f, err := os.Create(fName)
 	checkErr(err)

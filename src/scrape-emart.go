@@ -16,10 +16,10 @@ const (
 	emartCultureBaseURL = "http://culture.emart.com"
 
 	// 검색년도
-	emartSearchYearCode = "2020"
+	emartSearchYearCode = SearchYear
 
 	// 검색시즌(S1 ~ S4)
-	emartSearchSmstCode = "S2"
+	emartSearchSmstCode = "S" + SearchSeasonCode
 )
 
 /*
@@ -113,8 +113,8 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 		lectureCol4 := cleanString(ls.Eq(3 /* 수강료 */).Text())
 
 		// 개강일
-		startDate := regexp.MustCompile("[0-9]{4}\\-[0-9]{2}\\-[0-9]{2}").FindString(lectureCol2)
-		if len(strings.TrimSpace(startDate)) == 0 {
+		startDate := strings.TrimSpace(regexp.MustCompile("[0-9]{4}\\-[0-9]{2}\\-[0-9]{2}").FindString(lectureCol2))
+		if len(startDate) == 0 {
 			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol2+", URL:"+clPageURL+")")
 		}
 
@@ -126,8 +126,8 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 		}
 
 		// 요일
-		dayOfTheWeek := regexp.MustCompile("[월화수목금토일]+$").FindString(lectureCol3)
-		if len(strings.TrimSpace(dayOfTheWeek)) == 0 {
+		dayOfTheWeek := strings.TrimSpace(regexp.MustCompile("[월화수목금토일]+$").FindString(lectureCol3))
+		if len(dayOfTheWeek) == 0 {
 			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
 		}
 
@@ -137,8 +137,8 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 		}
 
 		// 강좌횟수
-		count := regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol2)
-		if len(strings.TrimSpace(count)) == 0 {
+		count := strings.TrimSpace(regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol2))
+		if len(count) == 0 {
 			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol2+", URL:"+clPageURL+")")
 		}
 
