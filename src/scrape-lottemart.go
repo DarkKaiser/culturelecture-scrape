@@ -105,6 +105,7 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	lectureCol2 := cleanString(ls.Eq(1 /* 강사명 */).Text())
 	lectureCol3 := cleanString(ls.Eq(2 /* 요일/시간/개강일 */).Text())
 	lectureCol4 := cleanString(ls.Eq(3 /* 수강료 */).Text())
+	lectureCol5 := cleanString(ls.Eq(4 /* 접수상태/수강신청 */).Find("div > div > a.btn-status:last-child").Text())
 
 	// 강좌명
 	lts := ls.Eq(0 /* 강좌명 */).Find("div.info-txt > a")
@@ -146,7 +147,18 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
 	}
 
-	// 접수상태@@@@@
+	// 접수상태
+	var status ReceptionStatus = ReceptionStatusUnknown
+	switch lectureCol5 {
+	case "바로신청":
+		status = ReceptionStatusPossible
+	case "접수마감":
+		status = ReceptionStatusClosed
+	case "대기자 신청":
+		status = ReceptionStatusStnadBy
+	default:
+		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:"+lectureCol5+", URL:"+clPageURL+")")
+	}
 
 	// 상세페이지
 	classCode, exists := lts.Attr("onclick")
@@ -161,16 +173,19 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	classCode = classCode[pos1+1 : pos2]
 
 	c <- cultureLecture{
-		storeName:     lottemart + " " + storeName,
-		title:         title,
-		teacher:       lectureCol2,
-		startDate:     startDate,
-		startTime:     startTime,
-		endTime:       endTime,
-		dayOfTheWeek:  dayOfTheWeek + "요일",
-		price:         price,
-		count:         count,
-		detailPageUrl: lottemartCultureBaseURL + "/cu/gus/course/courseinfo/courseview.do?cls_cd=" + classCode + "&is_category_open=N&search_term_cd=" + lottemartSearchTermCode + "&search_str_cd=" + storeCode,
+		storeName:      lottemart + " " + storeName,
+		group:          "",
+		title:          title,
+		teacher:        lectureCol2,
+		startDate:      startDate,
+		startTime:      startTime,
+		endTime:        endTime,
+		dayOfTheWeek:   dayOfTheWeek + "요일",
+		price:          price,
+		count:          count,
+		status:         status,
+		detailPageUrl:  lottemartCultureBaseURL + "/cu/gus/course/courseinfo/courseview.do?cls_cd=" + classCode + "&is_category_open=N&search_term_cd=" + lottemartSearchTermCode + "&search_str_cd=" + storeCode,
+		scrapeExcluded: false,
 	}
 }
 

@@ -175,7 +175,7 @@ func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m
 	lspd.Param[9] = ""                               // 문화행사
 	lspd.Param[10] = ""                              //
 	lspd.Param[11] = ""                              // 할인여부
-	lspd.Param[12] = "1"                             // 전체(''), 접수중('1'), 마감/대기등록('0')
+	lspd.Param[12] = ""                              // 전체(''), 접수중('1'), 마감/대기등록('0')
 	lspd.Param[13] = "N"                             // 정렬(N:기본값, 1:강좌명순, 2:요일/시간순, 3:수강료순, 4:개강임박순, 5:마감임박순)
 	lspd.Param[14] = "http://school.homeplus.co.kr/" //
 	lspd.Param[15] = "//imgcdn.homeplus.co.kr/"      //
@@ -183,7 +183,7 @@ func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m
 	lspd.Param[17] = "20"                            // 페이지당 검색할 강좌 갯수 => 검색할 강좌의 갯수가 너무 많은 경우 500 에러가 발생함
 	lspd.Param[18] = strconv.Itoa(n)                 // 뒤로 돌아왔을때 기존 페이지 번호
 	lspd.Param[19] = "1"                             // 강좌명순(1), 요일*시간순(2), 수강료순(3)
-	lspd.Param[20] = "1"                             // 전체(''), 접수중('1'), 마감/대기등록('0')
+	lspd.Param[20] = ""                              // 전체(''), 접수중('1'), 마감/대기등록('0')
 	lspd.Param[21] = ""                              // 온니강좌
 	lspd.Param[22] = ""                              // 테마강좌
 
@@ -191,50 +191,17 @@ func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m
 }
 
 func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectureData, c chan<- cultureLecture) {
-	// @@@@@
-	//println("###", s.Text())
-	// 정규표현식
-	//re1, _ := regexp.Compile("/([0-9]+)\\-([0-9]+)\\-([0-9]+)*\\(([a-zA-Z0-9]*)회\\)/g")
-	//re1, _ := regexp.Compile("([0-9]{4}\\-[0-9]{2}\\-[0-9]{2})")
-	//re1 := regexp.MustCompile("([0-9]{1,5}회)")
-	//s1 := re1.FindString("2020-05-01 (812회)")
-	//println(s1)
+	// 강좌그룹
+	group := "[" + cleanString(ld.LectureTargetName) + "] " + cleanString(ld.LectureGroupName)
+	if len(group) == 0 {
+		log.Panicln(homeplus, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:"+ld.LectureTargetName+", 분석데이터2:"+ld.LectureGroupName+", URL:"+clPageURL+")")
+	}
 
-	//re1, _ := regexp.Compile("([0-9]+)_*")
-	//s1 := re1.FindAllString(sd, -1)
-	//count, err := strconv.Atoi(s1[3])
-	//checkErr(err)
-
-	//MAXCNT                string `json:"MAX_CNT"`
-	//LectureSubType        string `json:"LectureSubType"`
-	//LectureType           string `json:"LectureType"`
-	//LectureBaseID         string `json:"LectureBaseID"`
-	//LectureTargetName     string `json:"LectureTargetName"`
-	//LectureTargetNameCode string `json:"LectureTargetNameCode"`
-	//LectureGroupName      string `json:"LectureGroupName"`
-	//LectureGroupNameCode  string `json:"LectureGroupNameCode"`
-	//LectureRoomName       string `json:"LectureRoomName"`
-	//LectureInfo           string `json:"LectureInfo"`
-	//LectureDesc           string `json:"LectureDesc"`
-	//YYYY                  string `json:"YYYY"`
-	//Season                string `json:"Season"`
-	//IsOnlyLecture         string `json:"IsOnlyLecture"`
-	//DCValue               string `json:"DCValue"`
-	//AdmitLimitType        string `json:"AdmitLimitType"`
-	//AdmitLimit            string `json:"AdmitLimit"`
-	//RegStatus             string `json:"RegStatus"`
-	//DisplayToWeb          string `json:"DisplayToWeb"`
-	//LectureDay            string `json:"LectureDay"`
-	//LectureCount          string `json:"LectureCount"`
-	//IconSrc               string `json:"IconSrc"`
-	//LectureStatus         string `json:"LectureStatus"`
-	//ImgSrc                string `json:"ImgSrc"`
-	//AdmitValid            string `json:"AdmitValid"`
-	//DeadLine              string `json:"DeadLine"` 마감임박
-	//println(ld.LectureTime)
-
-	// 강좌명@@@@@
+	// 강좌명
 	title := cleanString(ld.LectureName) + " " + cleanString(ld.SubLectureName1) + " " + cleanString(ld.SubLectureName2)
+	if len(title) == 0 {
+		log.Panicln(homeplus, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:"+ld.LectureName+", 분석데이터2:"+ld.SubLectureName1+", 분석데이터3:"+ld.SubLectureName2+", URL:"+clPageURL+")")
+	}
 
 	// 개강일
 	startDate := cleanString(regexp.MustCompile("^[0-9]{4}-[0-9]{2}-[0-9]{2} ").FindString(ld.DateLectureFrTo))
@@ -280,7 +247,26 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectur
 		log.Panicln(homeplus, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+ld.ClassCount+", URL:"+clPageURL+")")
 	}
 
-	// 접수상태@@@@@
+	// 접수상태
+	var status ReceptionStatus = ReceptionStatusUnknown
+	switch ld.LectureStatus {
+	case "1":
+		if ld.AdmitValid == "Y" {
+			status = ReceptionStatusPossible
+		}
+	case "2":
+		if ld.AdmitValid == "Y" {
+			status = ReceptionStatusStnadBy
+		}
+	case "3":
+		status = ReceptionStatusVisitConsultation
+	case "4":
+		status = ReceptionStatusClosed
+	case "8":
+		status = ReceptionStatusVisitFirstComeFirstServed
+	case "9":
+		status = ReceptionStatusDayParticipation
+	}
 
 	// 상세페이지
 	if len(cleanString(ld.LectureMasterID)) == 0 {
@@ -288,15 +274,18 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld lectur
 	}
 
 	c <- cultureLecture{
-		storeName:     homeplus + " " + storeName,
-		title:         title,
-		teacher:       ld.TeacherName,
-		startDate:     startDate,
-		startTime:     startTime,
-		endTime:       endTime,
-		dayOfTheWeek:  dayOfTheWeek + "요일",
-		price:         price + "원",
-		count:         count + "회",
-		detailPageUrl: homeplusCultureBaseURL + "/Lecture/SearchLectureDetail.aspx?LectureMasterID=" + ld.LectureMasterID,
+		storeName:      homeplus + " " + storeName,
+		group:          group,
+		title:          title,
+		teacher:        ld.TeacherName,
+		startDate:      startDate,
+		startTime:      startTime,
+		endTime:        endTime,
+		dayOfTheWeek:   dayOfTheWeek + "요일",
+		price:          price + "원",
+		count:          count + "회",
+		status:         status,
+		detailPageUrl:  homeplusCultureBaseURL + "/Lecture/SearchLectureDetail.aspx?LectureMasterID=" + ld.LectureMasterID,
+		scrapeExcluded: false,
 	}
 }

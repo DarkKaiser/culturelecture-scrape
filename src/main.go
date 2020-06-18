@@ -21,18 +21,37 @@ const (
 	/********************************************************************************/
 )
 
+// 접수상태
+type ReceptionStatus uint
+
+// 접수상태 문자열
+var ReceptionStatusString = []string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "당일참여"}
+
+// 지원가능한 접수상태 값
+const (
+	ReceptionStatusUnknown                   = iota //
+	ReceptionStatusPossible                         // 접수가능
+	ReceptionStatusClosed                           // 접수마감
+	ReceptionStatusStnadBy                          // 대기신청
+	ReceptionStatusVisitConsultation                // 방문상담
+	ReceptionStatusVisitFirstComeFirstServed        // 방문선착순
+	ReceptionStatusDayParticipation                 // 당일참여
+)
+
 type cultureLecture struct {
-	storeName     string // 점포
-	title         string // 강좌명
-	teacher       string // 강사명
-	startDate     string // 개강일(YYYY-MM-DD)
-	startTime     string // 시작시간(hh:mm)
-	endTime       string // 종료시간(hh:mm)
-	dayOfTheWeek  string // 요일
-	price         string // 수강료
-	count         string // 강좌횟수
-	status        string // 접수상태
-	detailPageUrl string // 상세페이지
+	storeName      string          // 점포
+	group          string          // 강좌그룹
+	title          string          // 강좌명
+	teacher        string          // 강사명
+	startDate      string          // 개강일(YYYY-MM-DD)
+	startTime      string          // 시작시간(hh:mm) : 24시간 형식
+	endTime        string          // 종료시간(hh:mm) : 24시간 형식
+	dayOfTheWeek   string          // 요일
+	price          string          // 수강료
+	count          string          // 강좌횟수
+	status         ReceptionStatus // 접수상태
+	detailPageUrl  string          // 상세페이지
+	scrapeExcluded bool            // 필터링에 걸려서 파일 저장시 제외되는지의 여부(csv 파일에 포함되지 않는다)
 }
 
 func main() {
@@ -45,8 +64,8 @@ func main() {
 	goRoutineCount++
 	go scrapeLottemartCultureLecture(c)
 	goRoutineCount++
-	//go scrapeHomeplusCultureLecture(c)
-	//goroutineCnt++
+	go scrapeHomeplusCultureLecture(c)
+	goRoutineCount++
 
 	var cultureLectures []cultureLecture
 	for i := 0; i < goRoutineCount; i++ {
@@ -56,16 +75,45 @@ func main() {
 
 	log.Println("문화센터 강좌 수집이 완료되었습니다. 총 " + strconv.Itoa(len(cultureLectures)) + "개의 강좌가 수집되었습니다.")
 
-	// 필터추가
-	// 평일 4시 이전 강좌는 모두 제외
-	// 개월수/나이에 포함되지 않으면 제외
-	// 접수상태
-	// @@@@@
-	//for _, ddd := range cultureLectures {
-	//	println(ddd.detailPageUrl)
-	//}
+	filtering(cultureLectures)
 
 	writeCultureLectures(cultureLectures)
+}
+
+func filtering(cultureLectures []cultureLecture) {
+	// 접수상태가 접수마감인 강좌를 제외한다.
+	for i, cultureLecture := range cultureLectures {
+		if cultureLecture.status == ReceptionStatusClosed {
+			cultureLectures[i].scrapeExcluded = true
+		}
+	}
+
+	// 주말 및 공휴일이 아닌 평일 16시 이전의 강좌를 제외한다.
+	weekday := []string{"월요일", "화요일", "수요일", "목요일", "금요일"}
+	for i, cultureLecture := range cultureLectures {
+		if contains(weekday, cultureLecture.dayOfTheWeek) == true {
+			// @@@@@ 공휴일
+
+			h24, err := strconv.Atoi(cultureLecture.startTime[:2])
+			checkErr(err)
+
+			if h24 < 16 {
+				cultureLectures[i].scrapeExcluded = true
+			}
+		}
+	}
+
+	// @@@@@
+	// 개월수 및 나이에 포함되지 않는 강좌는 제외한다.
+
+	count := 0
+	for _, cultureLecture := range cultureLectures {
+		if cultureLecture.scrapeExcluded == true {
+			count++
+		}
+	}
+
+	log.Println("총 " + strconv.Itoa(len(cultureLectures)) + "건의 강좌중에서 " + strconv.Itoa(count) + "건이 필터링되어 제외되었습니다.")
 }
 
 func writeCultureLectures(cultureLectures []cultureLecture) {
@@ -86,13 +134,18 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
-	headers := []string{"점포", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지"}
+	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지"}
 	err = w.Write(headers)
 	checkErr(err)
 
 	for _, cultureLecture := range cultureLectures {
+		if cultureLecture.scrapeExcluded == true {
+			continue
+		}
+
 		r := []string{
 			cultureLecture.storeName,
+			cultureLecture.group,
 			cultureLecture.title,
 			cultureLecture.teacher,
 			cultureLecture.startDate,
@@ -101,7 +154,7 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 			cultureLecture.dayOfTheWeek,
 			cultureLecture.price,
 			cultureLecture.count,
-			cultureLecture.status,
+			ReceptionStatusString[cultureLecture.status],
 			cultureLecture.detailPageUrl,
 		}
 		err := w.Write(r)

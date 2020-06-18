@@ -111,6 +111,7 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 		lectureCol2 := cleanString(ls.Eq(1 /* 강좌시작일(횟수) */).Text())
 		lectureCol3 := cleanString(ls.Eq(2 /* 강좌시간/요일 */).Text())
 		lectureCol4 := cleanString(ls.Eq(3 /* 수강료 */).Text())
+		lectureCol5 := cleanString(ls.Eq(4 /* 접수상태 */).Text())
 
 		// 개강일
 		startDate := strings.TrimSpace(regexp.MustCompile("[0-9]{4}\\-[0-9]{2}\\-[0-9]{2}").FindString(lectureCol2))
@@ -142,7 +143,18 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol2+", URL:"+clPageURL+")")
 		}
 
-		// 접수상태@@@@@
+		// 접수상태
+		var status ReceptionStatus = ReceptionStatusUnknown
+		switch lectureCol5 {
+		case "접수가능":
+			status = ReceptionStatusPossible
+		case "접수 마감":
+			status = ReceptionStatusClosed
+		case "대기신청":
+			status = ReceptionStatusStnadBy
+		default:
+			log.Panicln(emart, "문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:"+lectureCol5+", URL:"+clPageURL+")")
+		}
 
 		// 상세페이지
 		detailPageUrl, exists := ls.Eq(0).Find("a").Attr("href")
@@ -151,16 +163,19 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 		}
 
 		c <- cultureLecture{
-			storeName:     emart + " " + storeName,
-			title:         lectureCol1,
-			teacher:       "",
-			startDate:     startDate,
-			startTime:     startTime,
-			endTime:       endTime,
-			dayOfTheWeek:  dayOfTheWeek + "요일",
-			price:         lectureCol4,
-			count:         count,
-			detailPageUrl: emartCultureBaseURL + cleanString(detailPageUrl),
+			storeName:      emart + " " + storeName,
+			group:          "",
+			title:          lectureCol1,
+			teacher:        "",
+			startDate:      startDate,
+			startTime:      startTime,
+			endTime:        endTime,
+			dayOfTheWeek:   dayOfTheWeek + "요일",
+			price:          lectureCol4,
+			count:          count,
+			status:         status,
+			detailPageUrl:  emartCultureBaseURL + cleanString(detailPageUrl),
+			scrapeExcluded: false,
 		}
 	}
 }

@@ -33,3 +33,13 @@ func formatCommas(num int) string {
 	}
 	return str
 }
+
+func contains(s []string, substr string) bool {
+	for _, v := range s {
+		if v == substr {
+			return true
+		}
+	}
+
+	return false
+}
