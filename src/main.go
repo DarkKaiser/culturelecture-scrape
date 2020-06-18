@@ -18,6 +18,12 @@ const (
 
 	// 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
 	SearchSeasonCode = "2"
+
+	// 개월수@@@@@
+	filterMonths = 50
+
+	// 나이@@@@@
+	filterAge = 5
 	/********************************************************************************/
 )
 
@@ -105,6 +111,20 @@ func filtering(cultureLectures []cultureLecture) {
 
 	// @@@@@
 	// 개월수 및 나이에 포함되지 않는 강좌는 제외한다.
+	for i, cultureLecture := range cultureLectures {
+		ageOrMonths, from, to := extractAgeOrMonthsRange(cultureLecture)
+		println(ageOrMonths, from, to)
+
+		if ageOrMonths == 1 /* 개월수 */ {
+			if from < filterMonths || to > filterMonths {
+				cultureLectures[i].scrapeExcluded = true
+			}
+		} else if ageOrMonths == 2 /* 나이 */ {
+			if from < filterAge || to > filterAge {
+				cultureLectures[i].scrapeExcluded = true
+			}
+		}
+	}
 
 	count := 0
 	for _, cultureLecture := range cultureLectures {
@@ -114,6 +134,11 @@ func filtering(cultureLectures []cultureLecture) {
 	}
 
 	log.Println("총 " + strconv.Itoa(len(cultureLectures)) + "건의 강좌중에서 " + strconv.Itoa(count) + "건이 필터링되어 제외되었습니다.")
+}
+
+func extractAgeOrMonthsRange(cultureLecture cultureLecture) (int, from int, to int) {
+	// @@@@@
+	return 0, from, to
 }
 
 func writeCultureLectures(cultureLectures []cultureLecture) {
@@ -135,9 +160,9 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 	defer w.Flush()
 
 	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지"}
-	err = w.Write(headers)
-	checkErr(err)
+	checkErr(w.Write(headers))
 
+	count := 0
 	for _, cultureLecture := range cultureLectures {
 		if cultureLecture.scrapeExcluded == true {
 			continue
@@ -157,9 +182,9 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 			ReceptionStatusString[cultureLecture.status],
 			cultureLecture.detailPageUrl,
 		}
-		err := w.Write(r)
-		checkErr(err)
+		checkErr(w.Write(r))
+		count++
 	}
 
-	log.Println("수집된 문화센터 강좌 자료를 파일(" + fName + ")로 저장하였습니다.")
+	log.Println("수집된 문화센터 강좌 자료(" + strconv.Itoa(count) + "건)를 파일(" + fName + ")로 저장하였습니다.")
 }
