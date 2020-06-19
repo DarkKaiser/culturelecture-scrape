@@ -10,13 +10,13 @@ import (
 
 func checkErr(err error) {
 	if err != nil {
-		log.Panicln(err)
+		log.Fatalln(err)
 	}
 }
 
 func checkStatusCode(res *http.Response) {
 	if res.StatusCode != 200 {
-		log.Panicln("Request failed with Status:", res.StatusCode)
+		log.Fatalln("Request failed with Status:", res.StatusCode)
 	}
 }
 

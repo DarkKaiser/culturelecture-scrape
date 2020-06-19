@@ -4,8 +4,11 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"math"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,11 +22,11 @@ const (
 	// 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
 	SearchSeasonCode = "2"
 
-	// 개월수@@@@@
-	filterMonths = 50
+	// 강좌를 수강하는 아이 개월수
+	childrenMonths = 51
 
-	// 나이@@@@@
-	filterAge = 5
+	// 강좌를 수강하는 아이 나이
+	childrenAge = 5
 	/********************************************************************************/
 )
 
@@ -35,13 +38,23 @@ var ReceptionStatusString = []string{"알수없음", "접수가능", "접수마�
 
 // 지원가능한 접수상태 값
 const (
-	ReceptionStatusUnknown                   = iota //
+	ReceptionStatusUnknown                   = iota // 알수없음
 	ReceptionStatusPossible                         // 접수가능
 	ReceptionStatusClosed                           // 접수마감
 	ReceptionStatusStnadBy                          // 대기신청
 	ReceptionStatusVisitConsultation                // 방문상담
 	ReceptionStatusVisitFirstComeFirstServed        // 방문선착순
 	ReceptionStatusDayParticipation                 // 당일참여
+)
+
+// 연령제한타입
+type AgeLimitType uint
+
+// 지원가능한 연령제한타입 값
+const (
+	AgeLimitTypeUnknwon = iota // 알수없음
+	AgeLimitTypeAge            // 나이
+	AgeLimitTypeMonths         // 개월수
 )
 
 type cultureLecture struct {
@@ -68,10 +81,10 @@ func main() {
 	var goRoutineCount = 0
 	go scrapeEmartCultureLecture(c)
 	goRoutineCount++
-	go scrapeLottemartCultureLecture(c)
-	goRoutineCount++
-	go scrapeHomeplusCultureLecture(c)
-	goRoutineCount++
+	//go scrapeLottemartCultureLecture(c)
+	//goRoutineCount++
+	//go scrapeHomeplusCultureLecture(c)
+	//goRoutineCount++
 
 	var cultureLectures []cultureLecture
 	for i := 0; i < goRoutineCount; i++ {
@@ -98,7 +111,7 @@ func filtering(cultureLectures []cultureLecture) {
 	weekday := []string{"월요일", "화요일", "수요일", "목요일", "금요일"}
 	for i, cultureLecture := range cultureLectures {
 		if contains(weekday, cultureLecture.dayOfTheWeek) == true {
-			// @@@@@ 공휴일
+			// @@@@@ 공휴일 체크
 
 			h24, err := strconv.Atoi(cultureLecture.startTime[:2])
 			checkErr(err)
@@ -109,18 +122,16 @@ func filtering(cultureLectures []cultureLecture) {
 		}
 	}
 
-	// @@@@@
 	// 개월수 및 나이에 포함되지 않는 강좌는 제외한다.
 	for i, cultureLecture := range cultureLectures {
-		ageOrMonths, from, to := extractAgeOrMonthsRange(cultureLecture)
-		println(ageOrMonths, from, to)
+		alt, from, to := extractAgeOrMonthsRange(cultureLecture)
 
-		if ageOrMonths == 1 /* 개월수 */ {
-			if from < filterMonths || to > filterMonths {
+		if alt == AgeLimitTypeMonths {
+			if from < childrenMonths || to > childrenMonths {
 				cultureLectures[i].scrapeExcluded = true
 			}
-		} else if ageOrMonths == 2 /* 나이 */ {
-			if from < filterAge || to > filterAge {
+		} else if alt == AgeLimitTypeAge {
+			if from < childrenAge || to > childrenAge {
 				cultureLectures[i].scrapeExcluded = true
 			}
 		}
@@ -136,9 +147,55 @@ func filtering(cultureLectures []cultureLecture) {
 	log.Println("총 " + strconv.Itoa(len(cultureLectures)) + "건의 강좌중에서 " + strconv.Itoa(count) + "건이 필터링되어 제외되었습니다.")
 }
 
-func extractAgeOrMonthsRange(cultureLecture cultureLecture) (int, from int, to int) {
+func extractAgeOrMonthsRange(cultureLecture cultureLecture) (AgeLimitType, int, int) {
+	title := cultureLecture.title
+
 	// @@@@@
-	return 0, from, to
+	older := map[AgeLimitType][]string{
+		AgeLimitTypeAge:    {"세이상", "세 이상"},
+		AgeLimitTypeMonths: {"개월이상", "개월 이상"},
+	}
+	for key, val := range older {
+		for _, text := range val {
+			a := regexp.MustCompile("[0-9]{1,2}" + text).FindString(title)
+			if len(a) > 0 {
+				age, err := strconv.Atoi(strings.ReplaceAll(a, text, ""))
+				checkErr(err)
+				return key, age, math.MaxInt32
+			}
+		}
+	}
+
+	ageRange := map[AgeLimitType][]string{
+		AgeLimitTypeAge:    {"세"},
+		AgeLimitTypeMonths: {"개월"},
+	}
+	for key, val := range ageRange {
+		for _, text := range val {
+			a := regexp.MustCompile("[0-9]{1,2}~[0-9]{1,2}" + text).FindString(title)
+			if len(a) > 0 {
+				age := strings.ReplaceAll(a, text, "")
+				split := strings.Split(age, "~")
+				n1, err1 := strconv.Atoi(split[0])
+				n2, err2 := strconv.Atoi(split[0])
+				checkErr(err1)
+				checkErr(err2)
+				return key, n1, n2
+			}
+		}
+	}
+
+	exclude := map[string][2]int{
+		"성인": {20, math.MaxInt32},
+	}
+	for key, val := range exclude {
+		a := regexp.MustCompile(key).FindString(title)
+		if len(a) > 0 {
+			return AgeLimitTypeAge, val[0], val[1]
+		}
+	}
+
+	return AgeLimitTypeUnknwon, 0, math.MaxInt32
 }
 
 func writeCultureLectures(cultureLectures []cultureLecture) {
