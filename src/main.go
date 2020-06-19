@@ -6,9 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
-	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -148,52 +146,52 @@ func filtering(cultureLectures []cultureLecture) {
 }
 
 func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int, int) {
-	title := cultureLecture.title
+	//title := cultureLecture.title
 
-	// @@@@@
-	older := map[AgeLimitType][]string{
-		AgeLimitTypeAge:    {"세이상", "세 이상"},
-		AgeLimitTypeMonths: {"개월이상", "개월 이상"},
-	}
-	for k, v := range older {
-		for _, text := range v {
-			a := regexp.MustCompile("[0-9]{1,2}" + text).FindString(title)
-			if len(a) > 0 {
-				age, err := strconv.Atoi(strings.ReplaceAll(a, text, ""))
-				checkErr(err)
-				return k, age, math.MaxInt32
-			}
-		}
-	}
+	//// @@@@@
+	//older := map[AgeLimitType][]string{
+	//	AgeLimitTypeAge:    {"세이상", "세 이상"},
+	//	AgeLimitTypeMonths: {"개월이상", "개월 이상"},
+	//}
+	//for k, v := range older {
+	//	for _, text := range v {
+	//		a := regexp.MustCompile("[0-9]{1,2}" + text).FindString(title)
+	//		if len(a) > 0 {
+	//			age, err := strconv.Atoi(strings.ReplaceAll(a, text, ""))
+	//			checkErr(err)
+	//			return k, age, math.MaxInt32
+	//		}
+	//	}
+	//}
+	//
+	//ageRange := map[AgeLimitType][]string{
+	//	AgeLimitTypeAge:    {"세"},
+	//	AgeLimitTypeMonths: {"개월"},
+	//}
+	//for key, val := range ageRange {
+	//	for _, text := range val {
+	//		a := regexp.MustCompile("[0-9]{1,2}~[0-9]{1,2}" + text).FindString(title)
+	//		if len(a) > 0 {
+	//			age := strings.ReplaceAll(a, text, "")
+	//			split := strings.Split(age, "~")
+	//			n1, err1 := strconv.Atoi(split[0])
+	//			n2, err2 := strconv.Atoi(split[0])
+	//			checkErr(err1)
+	//			checkErr(err2)
+	//			return key, n1, n2
+	//		}
+	//	}
+	//}
 
-	ageRange := map[AgeLimitType][]string{
-		AgeLimitTypeAge:    {"세"},
-		AgeLimitTypeMonths: {"개월"},
-	}
-	for key, val := range ageRange {
-		for _, text := range val {
-			a := regexp.MustCompile("[0-9]{1,2}~[0-9]{1,2}" + text).FindString(title)
-			if len(a) > 0 {
-				age := strings.ReplaceAll(a, text, "")
-				split := strings.Split(age, "~")
-				n1, err1 := strconv.Atoi(split[0])
-				n2, err2 := strconv.Atoi(split[0])
-				checkErr(err1)
-				checkErr(err2)
-				return key, n1, n2
-			}
-		}
-	}
-
-	exclude := map[string][2]int{
-		"성인": {20, math.MaxInt32},
-	}
-	for key, val := range exclude {
-		a := regexp.MustCompile(key).FindString(title)
-		if len(a) > 0 {
-			return AgeLimitTypeAge, val[0], val[1]
-		}
-	}
+	//exclude := map[string][2]int{
+	//	"성인": {20, math.MaxInt32},
+	//}
+	//for key, val := range exclude {
+	//	a := regexp.MustCompile(key).FindString(title)
+	//	if len(a) > 0 {
+	//		return AgeLimitTypeAge, val[0], val[1]
+	//	}
+	//}
 
 	return AgeLimitTypeUnknwon, 0, math.MaxInt32
 }
