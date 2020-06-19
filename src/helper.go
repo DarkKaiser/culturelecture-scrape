@@ -40,6 +40,5 @@ func contains(s []string, substr string) bool {
 			return true
 		}
 	}
-
 	return false
 }

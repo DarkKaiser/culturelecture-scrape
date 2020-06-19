@@ -33,9 +33,6 @@ const (
 // 접수상태
 type ReceptionStatus uint
 
-// 접수상태 문자열
-var ReceptionStatusString = []string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "당일참여"}
-
 // 지원가능한 접수상태 값
 const (
 	ReceptionStatusUnknown                   = iota // 알수없음
@@ -46,6 +43,9 @@ const (
 	ReceptionStatusVisitFirstComeFirstServed        // 방문선착순
 	ReceptionStatusDayParticipation                 // 당일참여
 )
+
+// 지원가능한 접수상태 문자열
+var ReceptionStatusString = []string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "당일참여"}
 
 // 연령제한타입
 type AgeLimitType uint
@@ -78,21 +78,21 @@ func main() {
 
 	c := make(chan []cultureLecture, 3)
 
-	var goRoutineCount = 0
-	//go scrapeEmartCultureLecture(c)
-	//goRoutineCount++
+	var goroutineCount = 0
+	go scrapeEmartCultureLecture(c)
+	goroutineCount++
 	go scrapeLottemartCultureLecture(c)
-	goRoutineCount++
-	//go scrapeHomeplusCultureLecture(c)
-	//goRoutineCount++
+	goroutineCount++
+	go scrapeHomeplusCultureLecture(c)
+	goroutineCount++
 
 	var cultureLectures []cultureLecture
-	for i := 0; i < goRoutineCount; i++ {
+	for i := 0; i < goroutineCount; i++ {
 		cultureLecturesScraped := <-c
 		cultureLectures = append(cultureLectures, cultureLecturesScraped...)
 	}
 
-	log.Println("문화센터 강좌 수집이 완료되었습니다. 총 " + strconv.Itoa(len(cultureLectures)) + "개의 강좌가 수집되었습니다.")
+	log.Printf("문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", len(cultureLectures))
 
 	filtering(cultureLectures)
 
@@ -124,14 +124,14 @@ func filtering(cultureLectures []cultureLecture) {
 
 	// 개월수 및 나이에 포함되지 않는 강좌는 제외한다.
 	for i, cultureLecture := range cultureLectures {
-		alt, from, to := extractAgeOrMonthsRange(cultureLecture)
+		alType, from, to := extractAgeOrMonthsRange(&cultureLecture)
 
-		if alt == AgeLimitTypeMonths {
-			if from < childrenMonths || to > childrenMonths {
+		if alType == AgeLimitTypeMonths {
+			if childrenMonths < from || childrenMonths > to {
 				cultureLectures[i].scrapeExcluded = true
 			}
-		} else if alt == AgeLimitTypeAge {
-			if from < childrenAge || to > childrenAge {
+		} else if alType == AgeLimitTypeAge {
+			if childrenAge < from || childrenAge > to {
 				cultureLectures[i].scrapeExcluded = true
 			}
 		}
@@ -144,10 +144,10 @@ func filtering(cultureLectures []cultureLecture) {
 		}
 	}
 
-	log.Println("총 " + strconv.Itoa(len(cultureLectures)) + "건의 강좌중에서 " + strconv.Itoa(count) + "건이 필터링되어 제외되었습니다.")
+	log.Printf("총 %d건의 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(cultureLectures), count)
 }
 
-func extractAgeOrMonthsRange(cultureLecture cultureLecture) (AgeLimitType, int, int) {
+func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int, int) {
 	title := cultureLecture.title
 
 	// @@@@@
@@ -155,13 +155,13 @@ func extractAgeOrMonthsRange(cultureLecture cultureLecture) (AgeLimitType, int, 
 		AgeLimitTypeAge:    {"세이상", "세 이상"},
 		AgeLimitTypeMonths: {"개월이상", "개월 이상"},
 	}
-	for key, val := range older {
-		for _, text := range val {
+	for k, v := range older {
+		for _, text := range v {
 			a := regexp.MustCompile("[0-9]{1,2}" + text).FindString(title)
 			if len(a) > 0 {
 				age, err := strconv.Atoi(strings.ReplaceAll(a, text, ""))
 				checkErr(err)
-				return key, age, math.MaxInt32
+				return k, age, math.MaxInt32
 			}
 		}
 	}
@@ -202,9 +202,9 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 	log.Println("수집된 문화센터 강좌 자료를 파일로 저장합니다.")
 
 	now := time.Now()
-	fName := fmt.Sprintf("cultureLecture-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
+	fname := fmt.Sprintf("cultureLecture-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
 
-	f, err := os.Create(fName)
+	f, err := os.Create(fname)
 	checkErr(err)
 
 	defer f.Close()
@@ -243,5 +243,5 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 		count++
 	}
 
-	log.Println("수집된 문화센터 강좌 자료(" + strconv.Itoa(count) + "건)를 파일(" + fName + ")로 저장하였습니다.")
+	log.Printf("수집된 문화센터 강좌 자료(%d건)를 파일(%s)로 저장하였습니다.", count, fname)
 }
