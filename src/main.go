@@ -79,10 +79,10 @@ func main() {
 	c := make(chan []cultureLecture, 3)
 
 	var goRoutineCount = 0
-	go scrapeEmartCultureLecture(c)
-	goRoutineCount++
-	//go scrapeLottemartCultureLecture(c)
+	//go scrapeEmartCultureLecture(c)
 	//goRoutineCount++
+	go scrapeLottemartCultureLecture(c)
+	goRoutineCount++
 	//go scrapeHomeplusCultureLecture(c)
 	//goRoutineCount++
 

@@ -29,7 +29,7 @@ var lottemartStoreCodeMap = map[string]string{
 }
 
 func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
-	log.Println("롯데마트 문화센터 강좌 수집을 시작합니다.(검색조건:" + lottemartSearchTermCode + ")")
+	log.Printf("롯데마트 문화센터 강좌 수집을 시작합니다.(검색조건:%s)", lottemartSearchTermCode)
 
 	var wait sync.WaitGroup
 
@@ -57,7 +57,7 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 		// 24 : 접수마감 갯수
 		piArray := strings.Split(pi, "|")
 		if len(piArray) != 6 {
-			log.Fatalln("롯데마트 문화센터 강좌를 수집하는 중에 전체 페이지 갯수 추출이 실패하였습니다.(pageinfo:" + pi + ")")
+			log.Fatalf("롯데마트 문화센터 강좌를 수집하는 중에 전체 페이지 갯수 추출이 실패하였습니다.(pageinfo:%s)", pi)
 		}
 
 		totalPageCount, err := strconv.Atoi(piArray[1])
@@ -90,7 +90,7 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 		}
 	}
 
-	log.Println("롯데마트 문화센터 강좌 수집이 완료되었습니다. 총 " + strconv.Itoa(len(cultureLectures)) + "개의 강좌가 수집되었습니다.")
+	log.Printf("롯데마트 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", len(cultureLectures))
 
 	mainC <- cultureLectures
 }
@@ -99,7 +99,7 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	// 강좌의 컬럼 개수를 확인한다.
 	ls := s.Find("td")
 	if ls.Length() != 5 {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:"+strconv.Itoa(ls.Length())+", URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:"+strconv.Itoa(ls.Length())+", URL:"+clPageURL+")")
 	}
 
 	lectureCol2 := cleanString(ls.Eq(1 /* 강사명 */).Text())
@@ -110,14 +110,14 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	// 강좌명
 	lts := ls.Eq(0 /* 강좌명 */).Find("div.info-txt > a")
 	if lts.Length() == 0 {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(강좌명 <a> 태그를 찾을 수 없습니다, URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(강좌명 <a> 태그를 찾을 수 없습니다, URL:"+clPageURL+")")
 	}
 	title := cleanString(lts.Text())
 
 	// 개강일
 	startDate := strings.TrimSpace(regexp.MustCompile("[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}$").FindString(lectureCol3))
 	if len(startDate) == 0 {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
 	}
 	startDate = strings.ReplaceAll(startDate, ".", "-")
 
@@ -125,26 +125,26 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	startTime := strings.TrimSpace(regexp.MustCompile(" [0-9]{2}:[0-9]{2}").FindString(lectureCol3))
 	endTime := strings.TrimSpace(regexp.MustCompile("[0-9]{2}:[0-9]{2} ").FindString(lectureCol3))
 	if len(startDate) == 0 || len(endTime) == 0 {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
 	}
 
 	// 요일
 	dayOfTheWeek := strings.TrimSpace(regexp.MustCompile("\\([월화수목금토일]+").FindString(lectureCol3))
 	if len(dayOfTheWeek) == 0 {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol3+", URL:"+clPageURL+")")
 	}
 	dayOfTheWeek = string([]rune(dayOfTheWeek)[1:])
 
 	// 수강료
 	price := regexp.MustCompile("[0-9,]{1,8}원$").FindString(lectureCol4)
 	if strings.Contains(price, "원") == false {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
 	}
 
 	// 강좌횟수
 	count := strings.TrimSpace(regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol4))
 	if len(count) == 0 {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:"+lectureCol4+", URL:"+clPageURL+")")
 	}
 
 	// 접수상태
@@ -157,18 +157,18 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	case "대기자 신청":
 		status = ReceptionStatusStnadBy
 	default:
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:"+lectureCol5+", URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:"+lectureCol5+", URL:"+clPageURL+")")
 	}
 
 	// 상세페이지
 	classCode, exists := lts.Attr("onclick")
 	if exists == false {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
 	}
 	pos1 := strings.Index(classCode, "'")
 	pos2 := strings.LastIndex(classCode, "'")
 	if pos1 == -1 || pos2 == -1 || pos1 == pos2 {
-		log.Panicln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
+		log.Fatalln(lottemart, "문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:"+clPageURL+")")
 	}
 	classCode = classCode[pos1+1 : pos2]
 
