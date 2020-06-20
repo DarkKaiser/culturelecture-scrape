@@ -6,7 +6,9 @@ import (
 	"log"
 	"math"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -46,7 +48,7 @@ const (
 var ReceptionStatusString = []string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "당일참여"}
 
 // 연령제한타입
-type AgeLimitType uint
+type AgeLimitType int
 
 // 지원가능한 연령제한타입 값
 const (
@@ -146,52 +148,107 @@ func filtering(cultureLectures []cultureLecture) {
 }
 
 func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int, int) {
-	//title := cultureLecture.title
+	alTypesMap := map[AgeLimitType]string{
+		AgeLimitTypeAge:    "세",
+		AgeLimitTypeMonths: "개월",
+	}
+	for alType, alTypeString := range alTypesMap {
+		// n세이상, n세 이상
+		// n개월이상, n개월 이상
+		for _, v := range []string{alTypeString + "이상", alTypeString + " 이상"} {
+			fs := regexp.MustCompile("[0-9]{1,2}" + v).FindString(cultureLecture.title)
+			if len(fs) > 0 {
+				from, err := strconv.Atoi(strings.ReplaceAll(fs, v, ""))
+				checkErr(err)
 
-	//// @@@@@
-	//older := map[AgeLimitType][]string{
-	//	AgeLimitTypeAge:    {"세이상", "세 이상"},
-	//	AgeLimitTypeMonths: {"개월이상", "개월 이상"},
-	//}
-	//for k, v := range older {
-	//	for _, text := range v {
-	//		a := regexp.MustCompile("[0-9]{1,2}" + text).FindString(title)
-	//		if len(a) > 0 {
-	//			age, err := strconv.Atoi(strings.ReplaceAll(a, text, ""))
-	//			checkErr(err)
-	//			return k, age, math.MaxInt32
-	//		}
-	//	}
-	//}
-	//
-	//ageRange := map[AgeLimitType][]string{
-	//	AgeLimitTypeAge:    {"세"},
-	//	AgeLimitTypeMonths: {"개월"},
-	//}
-	//for key, val := range ageRange {
-	//	for _, text := range val {
-	//		a := regexp.MustCompile("[0-9]{1,2}~[0-9]{1,2}" + text).FindString(title)
-	//		if len(a) > 0 {
-	//			age := strings.ReplaceAll(a, text, "")
-	//			split := strings.Split(age, "~")
-	//			n1, err1 := strconv.Atoi(split[0])
-	//			n2, err2 := strconv.Atoi(split[0])
-	//			checkErr(err1)
-	//			checkErr(err2)
-	//			return key, n1, n2
-	//		}
-	//	}
-	//}
+				return alType, from, math.MaxInt32
+			}
+		}
 
-	//exclude := map[string][2]int{
-	//	"성인": {20, math.MaxInt32},
-	//}
-	//for key, val := range exclude {
-	//	a := regexp.MustCompile(key).FindString(title)
-	//	if len(a) > 0 {
-	//		return AgeLimitTypeAge, val[0], val[1]
+		// a~b세, a-b세
+		// a~b개월, a-b개월
+		fs := regexp.MustCompile("[0-9]{1,2}[~-]{1}[0-9]{1,2}" + alTypeString).FindString(cultureLecture.title)
+		if len(fs) > 0 {
+			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
+
+			from, err := strconv.Atoi(split[0])
+			checkErr(err)
+			to, err := strconv.Atoi(split[1])
+			checkErr(err)
+
+			return alType, from, to
+		}
+
+		// a세~b세, a세-b세
+		// a개월~b개월, a개월-b개월
+		fs = regexp.MustCompile(fmt.Sprintf("[0-9]{1,2}%s[~-]{1}[0-9]{1,2}%s", alTypeString, alTypeString)).FindString(cultureLecture.title)
+		if len(fs) > 0 {
+			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
+
+			from, err := strconv.Atoi(split[0])
+			checkErr(err)
+			to, err := strconv.Atoi(split[1])
+			checkErr(err)
+
+			return alType, from, to
+		}
+
+		// n세~초등, n세-초등
+		// n개월~초등, n개월-초등
+		fs = regexp.MustCompile(fmt.Sprintf("[0-9]{1,2}%s[~-]{1}초등", alTypeString)).FindString(cultureLecture.title)
+		if len(fs) > 0 {
+			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
+
+			from, err := strconv.Atoi(split[0])
+			checkErr(err)
+
+			to := 13
+			if alType == AgeLimitTypeMonths {
+				to *= 12
+			}
+
+			return alType, from, to
+		}
+
+		// (n세)
+		// (n개월)
+		fs = regexp.MustCompile(fmt.Sprintf("\\([0-9]{1,2}%s\\)", alTypeString)).FindString(cultureLecture.title)
+		if len(fs) > 0 {
+			from, err := strconv.Atoi(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "(", ""), ")", ""))
+			checkErr(err)
+
+			return alType, from, from
+		}
+	}
+
+	specificTextMap := map[string][3]int{
+		"키즈발레": {AgeLimitTypeAge, 99, 99},
+		"발레리나": {AgeLimitTypeAge, 99, 99},
+	}
+	for k, v := range specificTextMap {
+		if strings.Contains(cultureLecture.title, k) == true {
+			return AgeLimitType(v[0]), v[1], v[2]
+		}
+	}
+
+	// @@@@@
+	////////////////////////////////////////// 테스트코드@@@@@
+	//if alType == AgeLimitTypeMonths {
+	//	if childrenMonths < from || childrenMonths > to {
+	//		println(cultureLecture.title)
+	//	}
+	//} else if alType == AgeLimitTypeAge {
+	//	if childrenAge < from || childrenAge > to {
+	//		println(cultureLecture.title)
 	//	}
 	//}
+	//////////////////////////////////////////
+
+	// (초등) 7세~초등도 있음
+	//"(초등)":  {AgeLimitTypeAge, 8, 13},
+	//"(초등반)": {AgeLimitTypeAge, 8, 13},
+	// @@@@@//"성인":    {AgeLimitTypeAge, 20, math.MaxInt32},
+	//초1~초3
 
 	return AgeLimitTypeUnknwon, 0, math.MaxInt32
 }
