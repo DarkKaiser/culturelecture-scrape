@@ -148,6 +148,13 @@ func filtering(cultureLectures []cultureLecture) {
 }
 
 func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int, int) {
+	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
+	for _, v := range []string{"키즈발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
+		if strings.Contains(cultureLecture.title, v) == true {
+			return AgeLimitTypeAge, 99, 99
+		}
+	}
+
 	alTypesMap := map[AgeLimitType]string{
 		AgeLimitTypeAge:    "세",
 		AgeLimitTypeMonths: "개월",
@@ -207,34 +214,29 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 		}
 	}
 
+	// 초a~초b, 초a-초b
+	fs := regexp.MustCompile("초[1-6][~-]초[1-6]").FindString(cultureLecture.title)
+	if len(fs) > 0 {
+		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "초", ""), "-", "~"), "~")
+
+		from, err := strconv.Atoi(split[0])
+		checkErr(err)
+		to, err := strconv.Atoi(split[1])
+		checkErr(err)
+
+		return AgeLimitTypeAge, from + 7, to + 7
+	}
+
+	// 강좌명에 특정 문자열이 포함되어 있는 경우 연령제한타입 및 나이 범위를 임의적으로 반환한다.
 	specificTextMap := map[string][3]int{
-		"키즈발레": {AgeLimitTypeAge, 99, 99},
-		"발레리나": {AgeLimitTypeAge, 99, 99},
+		"(초등)":  {AgeLimitTypeAge, 8, 13},
+		"(초등반)": {AgeLimitTypeAge, 8, 13},
 	}
 	for k, v := range specificTextMap {
 		if strings.Contains(cultureLecture.title, k) == true {
 			return AgeLimitType(v[0]), v[1], v[2]
 		}
 	}
-
-	// @@@@@
-	////////////////////////////////////////// 테스트코드@@@@@
-	//if alType == AgeLimitTypeMonths {
-	//	if childrenMonths < from || childrenMonths > to {
-	//		println(cultureLecture.title)
-	//	}
-	//} else if alType == AgeLimitTypeAge {
-	//	if childrenAge < from || childrenAge > to {
-	//		println(cultureLecture.title)
-	//	}
-	//}
-	//////////////////////////////////////////
-	//롯데마트 여수점,,"[여수점] 8주 과학 영재교육, 카이로봇 (초1~초3) 7/4~8/29",김경희,2020-07-04,10:30,11:20,토요일,"60,000원",8회,접수가능,http://culture.lottemart.com/cu/gus/course/courseinfo/courseview.do?cls_cd=20200270543021&is_category_open=N&search_term_cd=202002&search_str_cd=705
-	//롯데마트 여수점,,[여수점] 8주 ★스토리텔링 신나는 놀이과학 교실(초1~초3) 7/4~8/29,노영란,2020-07-04,10:30,11:20,토요일,"53,600원",8회,접수가능,http://culture.lottemart.com/cu/gus/course/courseinfo/courseview.do?cls_cd=20200270543041&is_category_open=N&search_term_cd=202002&search_str_cd=705
-	//롯데마트 여수점,,[여수점] 8주★아이돌 방송댄스(초등반)7/4~8/29,장복희,2020-07-04,13:30,14:20,토요일,"40,000원",8회,접수가능,http://culture.lottemart.com/cu/gus/course/courseinfo/courseview.do?cls_cd=20200270546021&is_category_open=N&search_term_cd=202002&search_str_cd=705
-
-	//롯데마트 여수점,,"[여수점] 8주 매학기 조기 마감! 수리력,암기력 향상! 주산 암산 교실(초등) B반 7/4~8/29",박현정,2020-07-04,14:30,15:20,토요일,"73,600원",8회,접수가능,http://culture.lottemart.com/cu/gus/course/courseinfo/courseview.do?cls_cd=20200270543014&is_category_open=N&search_term_cd=202002&search_str_cd=705
-	//홈플러스 광양점,[유아] 동화놀이,"동화 퍼포먼스 놀이 토리토리 (6회) 4세,혼자반 ",박천희,2020-06-04,16:30,17:10,목요일,"30,000원",6회,방문상담,http://school.homeplus.co.kr/Lecture/SearchLectureDetail.aspx?LectureMasterID=7595756
 
 	return AgeLimitTypeUnknwon, 0, math.MaxInt32
 }
