@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"log"
@@ -258,6 +259,11 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 func writeCultureLectures(cultureLectures []cultureLecture) {
 	log.Println("수집된 문화센터 강좌 자료를 파일로 저장합니다.")
 
+	// @@@@@
+	file, _ := os.Open("./cultureLecture-scrape-previous.csv")
+	rdr := csv.NewReader(bufio.NewReader(file))
+	rows, _ := rdr.ReadAll()
+
 	now := time.Now()
 	fname := fmt.Sprintf("cultureLecture-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
 
@@ -273,7 +279,7 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
-	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지"}
+	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지", "이전에 수집된 강좌와의 변경여부"} //@@@@@
 	checkErr(w.Write(headers))
 
 	count := 0
@@ -295,10 +301,31 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 			cultureLecture.count,
 			ReceptionStatusString[cultureLecture.status],
 			cultureLecture.detailPageUrl,
+			test(rows, cultureLecture), //@@@@@
 		}
 		checkErr(w.Write(r))
 		count++
 	}
 
 	log.Printf("수집된 문화센터 강좌 자료(%d건)를 파일(%s)로 저장하였습니다.", count, fname)
+}
+
+func test(rows [][]string, lecture cultureLecture) string {
+	//@@@@@
+	for i, _ := range rows {
+		if rows[i][0] == lecture.storeName &&
+			rows[i][1] == lecture.group &&
+			rows[i][2] == lecture.title &&
+			rows[i][3] == lecture.teacher &&
+			rows[i][4] == lecture.startDate &&
+			rows[i][5] == lecture.startTime &&
+			rows[i][6] == lecture.endTime &&
+			rows[i][7] == lecture.dayOfTheWeek &&
+			rows[i][8] == lecture.price &&
+			rows[i][9] == lecture.count &&
+			rows[i][11] == lecture.detailPageUrl {
+			return "1"
+		}
+	}
+	return "0"
 }
