@@ -14,7 +14,7 @@ import (
 )
 
 /********************************************************************************/
-/* 강좌 수집 작업시에 변경되는 값                                                    */
+/* 강좌 수집 작업시에 변경되는 값 BEGIN                                              */
 /****************************************************************************** */
 const (
 	// 검색년도
@@ -24,14 +24,14 @@ const (
 	SearchSeasonCode = "2"
 
 	// 강좌를 수강하는 아이 개월수
-	childrenMonths = 51
+	ChildrenMonths = 51
 
 	// 강좌를 수강하는 아이 나이
-	childrenAge = 5
+	ChildrenAge = 5
 )
 
 // 2020년도 공휴일
-var holidays = []string{
+var Holidays = []string{
 	"2020-01-01",
 	"2020-01-24", "2020-01-25", "2020-01-26", "2020-01-27",
 	"2020-03-01",
@@ -46,6 +46,8 @@ var holidays = []string{
 }
 
 /********************************************************************************/
+/* 강좌 수집 작업시에 변경되는 값 END                                                */
+/****************************************************************************** */
 
 // 접수상태
 type ReceptionStatus uint
@@ -124,8 +126,7 @@ func main() {
 	 */
 	const latestScrapedLecturesFileName = "culturelecture-scrape-latest.csv"
 
-	// 가장 최근에 수집된 강좌 데이터를 읽어들인다.
-	var latestScrapedCultureLecturess [][]string
+	var latestScrapedCultureLectures [][]string
 	f, _ := os.Open(latestScrapedLecturesFileName)
 	if f == nil {
 		log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)가 존재하지 않습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedLecturesFileName))
@@ -133,8 +134,8 @@ func main() {
 		defer f.Close()
 
 		r := csv.NewReader(bufio.NewReader(f))
-		latestScrapedCultureLecturess, _ = r.ReadAll()
-		if latestScrapedCultureLecturess == nil {
+		latestScrapedCultureLectures, _ = r.ReadAll()
+		if latestScrapedCultureLectures == nil {
 			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드할 수 없습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedLecturesFileName))
 		} else {
 			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드하였습니다.", latestScrapedLecturesFileName))
@@ -144,7 +145,7 @@ func main() {
 	/**
 	 * 문화센터 강좌 파일로 저장
 	 */
-	writeCultureLectures(cultureLectures, latestScrapedCultureLecturess)
+	writeCultureLectures(cultureLectures, latestScrapedCultureLectures)
 }
 
 func filtering(cultureLectures []cultureLecture) {
@@ -158,7 +159,7 @@ func filtering(cultureLectures []cultureLecture) {
 	// 주말 및 공휴일이 아닌 평일 16시 이전의 강좌를 제외한다.
 	weekdays := []string{"월요일", "화요일", "수요일", "목요일", "금요일"}
 	for i, cultureLecture := range cultureLectures {
-		if contains(weekdays, cultureLecture.dayOfTheWeek) == true && contains(holidays, cultureLecture.startDate) == false {
+		if contains(weekdays, cultureLecture.dayOfTheWeek) == true && contains(Holidays, cultureLecture.startDate) == false {
 			h24, err := strconv.Atoi(cultureLecture.startTime[:2])
 			checkErr(err)
 
@@ -173,11 +174,11 @@ func filtering(cultureLectures []cultureLecture) {
 		alType, from, to := extractAgeOrMonthsRange(&cultureLecture)
 
 		if alType == AgeLimitTypeMonths {
-			if childrenMonths < from || childrenMonths > to {
+			if ChildrenMonths < from || ChildrenMonths > to {
 				cultureLectures[i].scrapeExcluded = true
 			}
 		} else if alType == AgeLimitTypeAge {
-			if childrenAge < from || childrenAge > to {
+			if ChildrenAge < from || ChildrenAge > to {
 				cultureLectures[i].scrapeExcluded = true
 			}
 		}
@@ -273,7 +274,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 		return AgeLimitTypeAge, from + 7, to + 7
 	}
 
-	// 강좌명에 특정 문자열이 포함되어 있는 경우 연령제한타입 및 나이 범위를 임의적으로 반환한다.
+	// 강좌명에 특정 문자열이 포함되어 있는 경우, 연령제한타입 및 나이 범위를 임의적으로 반환한다.
 	specificTextMap := map[string][3]int{
 		"(초등)":  {AgeLimitTypeAge, 8, 13},
 		"(초등반)": {AgeLimitTypeAge, 8, 13},
@@ -337,7 +338,7 @@ func writeCultureLectures(cultureLectures []cultureLecture, latestScrapedCulture
 }
 
 func compareLatestScrapedCultureLecture(cultureLecture *cultureLecture, latestScrapedCultureLectures [][]string) string {
-	if latestScrapedCultureLectures == nil {
+	if latestScrapedCultureLectures == nil || (len(latestScrapedCultureLectures) == 1 && len(latestScrapedCultureLectures[0]) == 1) {
 		return "-"
 	}
 
