@@ -91,6 +91,9 @@ type cultureLecture struct {
 }
 
 func main() {
+	/**
+	 * 문화센터 강좌 수집
+	 */
 	log.Println("문화센터 강좌 수집을 시작합니다.")
 
 	c := make(chan []cultureLecture, 3)
@@ -111,9 +114,37 @@ func main() {
 
 	log.Printf("문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", len(cultureLectures))
 
+	/**
+	 * 수집된 문화센터 강좌 필터링
+	 */
 	filtering(cultureLectures)
 
-	writeCultureLectures(cultureLectures)
+	/**
+	 * 최근에 수집된 문화센터 강좌 자료 로드
+	 */
+	const latestScrapedLecturesFileName = "culturelecture-scrape-latest.csv"
+
+	// 가장 최근에 수집된 강좌 데이터를 읽어들인다.
+	var latestScrapedCultureLecturess [][]string
+	f, _ := os.Open(latestScrapedLecturesFileName)
+	if f == nil {
+		log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)가 존재하지 않습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedLecturesFileName))
+	} else {
+		defer f.Close()
+
+		r := csv.NewReader(bufio.NewReader(f))
+		latestScrapedCultureLecturess, _ = r.ReadAll()
+		if latestScrapedCultureLecturess == nil {
+			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드할 수 없습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedLecturesFileName))
+		} else {
+			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드하였습니다.", latestScrapedLecturesFileName))
+		}
+	}
+
+	/**
+	 * 문화센터 강좌 파일로 저장
+	 */
+	writeCultureLectures(cultureLectures, latestScrapedCultureLecturess)
 }
 
 func filtering(cultureLectures []cultureLecture) {
@@ -159,7 +190,7 @@ func filtering(cultureLectures []cultureLecture) {
 		}
 	}
 
-	log.Printf("총 %d건의 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(cultureLectures), count)
+	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(cultureLectures), count)
 }
 
 func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int, int) {
@@ -256,16 +287,11 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 	return AgeLimitTypeUnknwon, 0, math.MaxInt32
 }
 
-func writeCultureLectures(cultureLectures []cultureLecture) {
+func writeCultureLectures(cultureLectures []cultureLecture, latestScrapedCultureLectures [][]string) {
 	log.Println("수집된 문화센터 강좌 자료를 파일로 저장합니다.")
 
-	// @@@@@
-	file, _ := os.Open("./cultureLecture-scrape-previous.csv")
-	rdr := csv.NewReader(bufio.NewReader(file))
-	rows, _ := rdr.ReadAll()
-
 	now := time.Now()
-	fname := fmt.Sprintf("cultureLecture-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
+	fname := fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
 
 	f, err := os.Create(fname)
 	checkErr(err)
@@ -279,7 +305,7 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
-	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지", "이전에 수집된 강좌와의 변경여부"} //@@@@@
+	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지", "최근에 수집된 강좌와 비교"}
 	checkErr(w.Write(headers))
 
 	count := 0
@@ -301,7 +327,7 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 			cultureLecture.count,
 			ReceptionStatusString[cultureLecture.status],
 			cultureLecture.detailPageUrl,
-			test(rows, cultureLecture), //@@@@@
+			compareLatestScrapedCultureLecture(&cultureLecture, latestScrapedCultureLectures),
 		}
 		checkErr(w.Write(r))
 		count++
@@ -310,22 +336,33 @@ func writeCultureLectures(cultureLectures []cultureLecture) {
 	log.Printf("수집된 문화센터 강좌 자료(%d건)를 파일(%s)로 저장하였습니다.", count, fname)
 }
 
-func test(rows [][]string, lecture cultureLecture) string {
-	//@@@@@
-	for i, _ := range rows {
-		if rows[i][0] == lecture.storeName &&
-			rows[i][1] == lecture.group &&
-			rows[i][2] == lecture.title &&
-			rows[i][3] == lecture.teacher &&
-			rows[i][4] == lecture.startDate &&
-			rows[i][5] == lecture.startTime &&
-			rows[i][6] == lecture.endTime &&
-			rows[i][7] == lecture.dayOfTheWeek &&
-			rows[i][8] == lecture.price &&
-			rows[i][9] == lecture.count &&
-			rows[i][11] == lecture.detailPageUrl {
-			return "1"
+func compareLatestScrapedCultureLecture(cultureLecture *cultureLecture, latestScrapedCultureLectures [][]string) string {
+	if latestScrapedCultureLectures == nil {
+		return "-"
+	}
+
+	for _, latestScrapedCultureLecture := range latestScrapedCultureLectures {
+		if len(latestScrapedCultureLecture) != 13 {
+			continue
+		}
+
+		if latestScrapedCultureLecture[0] == cultureLecture.storeName &&
+			latestScrapedCultureLecture[1] == cultureLecture.group &&
+			latestScrapedCultureLecture[2] == cultureLecture.title &&
+			latestScrapedCultureLecture[3] == cultureLecture.teacher &&
+			latestScrapedCultureLecture[4] == cultureLecture.startDate &&
+			latestScrapedCultureLecture[5] == cultureLecture.startTime &&
+			latestScrapedCultureLecture[6] == cultureLecture.endTime &&
+			latestScrapedCultureLecture[8] == cultureLecture.price &&
+			latestScrapedCultureLecture[9] == cultureLecture.count &&
+			latestScrapedCultureLecture[11] == cultureLecture.detailPageUrl {
+			return "변경사항 없음"
+		}
+
+		if latestScrapedCultureLecture[11] == cultureLecture.detailPageUrl {
+			return "변경됨"
 		}
 	}
-	return "0"
+
+	return "신규"
 }
