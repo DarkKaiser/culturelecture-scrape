@@ -1,4 +1,4 @@
-package main
+package helpers
 
 import (
 	"fmt"
@@ -8,23 +8,23 @@ import (
 	"strings"
 )
 
-func checkErr(err error) {
+func CheckErr(err error) {
 	if err != nil {
 		log.Fatalln(err)
 	}
 }
 
-func checkStatusCode(res *http.Response) {
+func CheckStatusCode(res *http.Response) {
 	if res.StatusCode != 200 {
 		log.Fatalln("Request failed with Status:", res.StatusCode)
 	}
 }
 
-func cleanString(str string) string {
+func CleanString(str string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
 }
 
-func formatCommas(num int) string {
+func FormatCommas(num int) string {
 	str := fmt.Sprintf("%d", num)
 	re := regexp.MustCompile("(\\d+)(\\d{3})")
 	for n := ""; n != str; {
@@ -34,7 +34,7 @@ func formatCommas(num int) string {
 	return str
 }
 
-func contains(s []string, substr string) bool {
+func Contains(s []string, substr string) bool {
 	for _, v := range s {
 		if v == substr {
 			return true

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
+	"helpers"
 	"log"
 	"math"
 	"os"
@@ -159,9 +160,9 @@ func filtering(cultureLectures []cultureLecture) {
 	// 주말 및 공휴일이 아닌 평일 16시 이전의 강좌를 제외한다.
 	weekdays := []string{"월요일", "화요일", "수요일", "목요일", "금요일"}
 	for i, cultureLecture := range cultureLectures {
-		if contains(weekdays, cultureLecture.dayOfTheWeek) == true && contains(Holidays, cultureLecture.startDate) == false {
+		if helpers.Contains(weekdays, cultureLecture.dayOfTheWeek) == true && helpers.Contains(Holidays, cultureLecture.startDate) == false {
 			h24, err := strconv.Atoi(cultureLecture.startTime[:2])
-			checkErr(err)
+			helpers.CheckErr(err)
 
 			if h24 < 16 {
 				cultureLectures[i].scrapeExcluded = true
@@ -213,7 +214,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 			fs := regexp.MustCompile("[0-9]{1,2}" + v).FindString(cultureLecture.title)
 			if len(fs) > 0 {
 				from, err := strconv.Atoi(strings.ReplaceAll(fs, v, ""))
-				checkErr(err)
+				helpers.CheckErr(err)
 
 				return alType, from, math.MaxInt32
 			}
@@ -226,9 +227,9 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
 			from, err := strconv.Atoi(split[0])
-			checkErr(err)
+			helpers.CheckErr(err)
 			to, err := strconv.Atoi(split[1])
-			checkErr(err)
+			helpers.CheckErr(err)
 
 			return alType, from, to
 		}
@@ -240,7 +241,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
 			from, err := strconv.Atoi(split[0])
-			checkErr(err)
+			helpers.CheckErr(err)
 
 			to := 13
 			if alType == AgeLimitTypeMonths {
@@ -255,7 +256,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 		fs = regexp.MustCompile(fmt.Sprintf("\\([0-9]{1,2}%s\\)", alTypeString)).FindString(cultureLecture.title)
 		if len(fs) > 0 {
 			no, err := strconv.Atoi(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "(", ""), ")", ""))
-			checkErr(err)
+			helpers.CheckErr(err)
 
 			return alType, no, no
 		}
@@ -267,9 +268,9 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "초", ""), "-", "~"), "~")
 
 		from, err := strconv.Atoi(split[0])
-		checkErr(err)
+		helpers.CheckErr(err)
 		to, err := strconv.Atoi(split[1])
-		checkErr(err)
+		helpers.CheckErr(err)
 
 		return AgeLimitTypeAge, from + 7, to + 7
 	}
@@ -295,19 +296,19 @@ func writeCultureLectures(cultureLectures []cultureLecture, latestScrapedCulture
 	fname := fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
 
 	f, err := os.Create(fname)
-	checkErr(err)
+	helpers.CheckErr(err)
 
 	defer f.Close()
 
 	// 파일 첫 부분에 UTF-8 BOM을 추가한다.
 	_, err = f.WriteString("\xEF\xBB\xBF")
-	checkErr(err)
+	helpers.CheckErr(err)
 
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
 	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지", "최근에 수집된 강좌와 비교"}
-	checkErr(w.Write(headers))
+	helpers.CheckErr(w.Write(headers))
 
 	count := 0
 	for _, cultureLecture := range cultureLectures {
@@ -330,7 +331,7 @@ func writeCultureLectures(cultureLectures []cultureLecture, latestScrapedCulture
 			cultureLecture.detailPageUrl,
 			compareLatestScrapedCultureLecture(&cultureLecture, latestScrapedCultureLectures),
 		}
-		checkErr(w.Write(r))
+		helpers.CheckErr(w.Write(r))
 		count++
 	}
 

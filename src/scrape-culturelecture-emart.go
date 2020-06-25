@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"helpers"
 	"log"
 	"net/http"
 	"regexp"
@@ -65,13 +66,13 @@ func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
 				clPageURL := fmt.Sprintf("%s/lecture/lecture/list?year_code=%s&smst_code=%s&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=%s&group_code=%s&lect_name=", emartCultureBaseURL, emartSearchYearCode, emartSearchSmstCode, storeCode, groupCode)
 
 				res, err := http.Get(clPageURL)
-				checkErr(err)
-				checkStatusCode(res)
+				helpers.CheckErr(err)
+				helpers.CheckStatusCode(res)
 
 				defer res.Body.Close()
 
 				doc, err := goquery.NewDocumentFromReader(res.Body)
-				checkErr(err)
+				helpers.CheckErr(err)
 
 				clSelection := doc.Find("div.board_list > table > tbody > tr")
 				clSelection.Each(func(i int, s *goquery.Selection) {
@@ -98,7 +99,7 @@ func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
 }
 
 func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.Selection, c chan<- *cultureLecture) {
-	if cleanString(s.Text()) == "검색된 강좌가 없습니다." {
+	if helpers.CleanString(s.Text()) == "검색된 강좌가 없습니다." {
 		c <- &cultureLecture{}
 	} else {
 		// 강좌의 컬럼 개수를 확인한다.
@@ -107,11 +108,11 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", emart, ls.Length(), clPageURL)
 		}
 
-		lectureCol1 := cleanString(ls.Eq(0 /* 강좌명 */).Text())
-		lectureCol2 := cleanString(ls.Eq(1 /* 강좌시작일(횟수) */).Text())
-		lectureCol3 := cleanString(ls.Eq(2 /* 강좌시간/요일 */).Text())
-		lectureCol4 := cleanString(ls.Eq(3 /* 수강료 */).Text())
-		lectureCol5 := cleanString(ls.Eq(4 /* 접수상태 */).Text())
+		lectureCol1 := helpers.CleanString(ls.Eq(0 /* 강좌명 */).Text())
+		lectureCol2 := helpers.CleanString(ls.Eq(1 /* 강좌시작일(횟수) */).Text())
+		lectureCol3 := helpers.CleanString(ls.Eq(2 /* 강좌시간/요일 */).Text())
+		lectureCol4 := helpers.CleanString(ls.Eq(3 /* 수강료 */).Text())
+		lectureCol5 := helpers.CleanString(ls.Eq(4 /* 접수상태 */).Text())
 
 		// 개강일
 		startDate := regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}").FindString(lectureCol2)
@@ -174,7 +175,7 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 			price:          lectureCol4,
 			count:          count,
 			status:         status,
-			detailPageUrl:  emartCultureBaseURL + cleanString(detailPageUrl),
+			detailPageUrl:  emartCultureBaseURL + helpers.CleanString(detailPageUrl),
 			scrapeExcluded: false,
 		}
 	}
