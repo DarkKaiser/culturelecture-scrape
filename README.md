@@ -1,3 +1,5 @@
+이마트/롯데마트/홈플러스 문화센터의 강좌를 수집하는 
+
 # scrape-culturelecture
 culturelecture-scrape-YYYYMMDDhhmmss.csv
 * 최초 문화센터 강좌 수집 파일
