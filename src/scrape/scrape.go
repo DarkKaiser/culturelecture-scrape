@@ -1,4 +1,4 @@
-package main
+package scrape
 
 import (
 	"bufio"
@@ -93,7 +93,7 @@ type cultureLecture struct {
 	scrapeExcluded bool            // 필터링에 걸려서 파일 저장시 제외되는지의 여부(csv 파일에 포함되지 않는다)
 }
 
-func main() {
+func Scrape() {
 	/**
 	 * 문화센터 강좌 수집
 	 */
