@@ -1,4 +1,4 @@
-package scrape
+package culture
 
 import (
 	"bytes"
@@ -18,10 +18,10 @@ const (
 	lottemart = "롯데마트"
 
 	lottemartCultureBaseURL = "http://culture.lottemart.com"
-
-	// 검색년도 & 검색시즌 코드
-	lottemartSearchTermCode = SearchYear + "0" + SearchSeasonCode
 )
+
+// 검색년도 & 검색시즌 코드@@@@@ 함수 인자로 받기
+var lottemartSearchTermCode = SearchYear + "0" + SearchSeasonCode
 
 /*
  * 점포
@@ -30,12 +30,12 @@ var lottemartStoreCodeMap = map[string]string{
 	"705": "여수점",
 }
 
-func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
+func ScrapeLottemartCultureLecture(mainC chan<- []Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s)", lottemart, lottemartSearchTermCode)
 
 	var wait sync.WaitGroup
 
-	c := make(chan *cultureLecture, 10)
+	c := make(chan *Lecture, 10)
 
 	count := 0
 	for storeCode, storeName := range lottemartStoreCodeMap {
@@ -84,20 +84,20 @@ func scrapeLottemartCultureLecture(mainC chan<- []cultureLecture) {
 
 	wait.Wait()
 
-	var cultureLectures []cultureLecture
+	var lectures []Lecture
 	for i := 0; i < count; i++ {
-		cultureLecture := <-c
-		if len(cultureLecture.title) > 0 {
-			cultureLectures = append(cultureLectures, *cultureLecture)
+		lecture := <-c
+		if len(lecture.Title) > 0 {
+			lectures = append(lectures, *lecture)
 		}
 	}
 
-	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", lottemart, len(cultureLectures))
+	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", lottemart, len(lectures))
 
-	mainC <- cultureLectures
+	mainC <- lectures
 }
 
-func extractLottemartCultureLecture(clPageURL string, storeCode string, storeName string, s *goquery.Selection, c chan<- *cultureLecture) {
+func extractLottemartCultureLecture(clPageURL string, storeCode string, storeName string, s *goquery.Selection, c chan<- *Lecture) {
 	// 강좌의 컬럼 개수를 확인한다.
 	ls := s.Find("td")
 	if ls.Length() != 5 {
@@ -174,20 +174,20 @@ func extractLottemartCultureLecture(clPageURL string, storeCode string, storeNam
 	}
 	classCode = classCode[pos1+1 : pos2]
 
-	c <- &cultureLecture{
-		storeName:      fmt.Sprintf("%s %s", lottemart, storeName),
-		group:          "",
-		title:          title,
-		teacher:        lectureCol2,
-		startDate:      startDate,
-		startTime:      startTime,
-		endTime:        endTime,
-		dayOfTheWeek:   dayOfTheWeek + "요일",
-		price:          price,
-		count:          count,
-		status:         status,
-		detailPageUrl:  fmt.Sprintf("%s/cu/gus/course/courseinfo/courseview.do?cls_cd=%s&is_category_open=N&search_term_cd=%s&search_str_cd=%s", lottemartCultureBaseURL, classCode, lottemartSearchTermCode, storeCode),
-		scrapeExcluded: false,
+	c <- &Lecture{
+		StoreName:      fmt.Sprintf("%s %s", lottemart, storeName),
+		Group:          "",
+		Title:          title,
+		Teacher:        lectureCol2,
+		StartDate:      startDate,
+		StartTime:      startTime,
+		EndTime:        endTime,
+		DayOfTheWeek:   dayOfTheWeek + "요일",
+		Price:          price,
+		Count:          count,
+		Status:         status,
+		DetailPageUrl:  fmt.Sprintf("%s/cu/gus/course/courseinfo/courseview.do?cls_cd=%s&is_category_open=N&search_term_cd=%s&search_str_cd=%s", lottemartCultureBaseURL, classCode, lottemartSearchTermCode, storeCode),
+		ScrapeExcluded: false,
 	}
 }
 

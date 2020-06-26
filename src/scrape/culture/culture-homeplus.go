@@ -1,4 +1,4 @@
-package scrape
+package culture
 
 import (
 	"bytes"
@@ -100,16 +100,16 @@ type lectureData struct {
 	DeadLine              string `json:"DeadLine"`
 }
 
-func scrapeHomeplusCultureLecture(mainC chan<- []cultureLecture) {
+func ScrapeHomeplusCultureLecture(mainC chan<- []Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", homeplus)
 
-	c := make(chan *cultureLecture, 10)
+	c := make(chan *Lecture, 10)
 
 	// 각 점포 및 강좌군의 검색까지 병렬화(goroutine)하면, 검색 결과의 데이터 갯수가 매번 다르게 반환되므로 병렬화를 하지 않음!!!
 	// 문제에 대한 원인은 알 수 없음
 	count := 0
 	for storeCode, storeName := range homeplusStoreCodeMap {
-		for groupCode, _ := range homeplusGroupCodeMap {
+		for groupCode := range homeplusGroupCodeMap {
 			clPageURL := homeplusCultureBaseURL + "/Lecture/SearchLectureInfo.aspx/LectureSearchResult"
 
 			m := 1
@@ -148,17 +148,17 @@ func scrapeHomeplusCultureLecture(mainC chan<- []cultureLecture) {
 		}
 	}
 
-	var cultureLectures []cultureLecture
+	var lectures []Lecture
 	for i := 0; i < count; i++ {
-		cultureLecture := <-c
-		if len(cultureLecture.title) > 0 {
-			cultureLectures = append(cultureLectures, *cultureLecture)
+		lecture := <-c
+		if len(lecture.Title) > 0 {
+			lectures = append(lectures, *lecture)
 		}
 	}
 
-	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", homeplus, len(cultureLectures))
+	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", homeplus, len(lectures))
 
-	mainC <- cultureLectures
+	mainC <- lectures
 }
 
 func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m int, n int) *homeplusLectureSearchPostData {
@@ -191,7 +191,7 @@ func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m
 	return &lspd
 }
 
-func extractHomeplusCultureLecture(clPageURL string, storeName string, ld *lectureData, c chan<- *cultureLecture) {
+func extractHomeplusCultureLecture(clPageURL string, storeName string, ld *lectureData, c chan<- *Lecture) {
 	// 강좌그룹
 	group := fmt.Sprintf("[%s] %s", helpers.CleanString(ld.LectureTargetName), helpers.CleanString(ld.LectureGroupName))
 	if len(group) == 0 {
@@ -274,19 +274,19 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld *lectu
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지로 이동하기 위해 필요한 [ LectureMasterID ] 값이 비어 있습니다, URL:%s)", homeplus, clPageURL)
 	}
 
-	c <- &cultureLecture{
-		storeName:      fmt.Sprintf("%s %s", homeplus, storeName),
-		group:          group,
-		title:          title,
-		teacher:        ld.TeacherName,
-		startDate:      startDate,
-		startTime:      startTime,
-		endTime:        endTime,
-		dayOfTheWeek:   dayOfTheWeek + "요일",
-		price:          price + "원",
-		count:          count + "회",
-		status:         status,
-		detailPageUrl:  fmt.Sprintf("%s/Lecture/SearchLectureDetail.aspx?LectureMasterID=%s", homeplusCultureBaseURL, ld.LectureMasterID),
-		scrapeExcluded: false,
+	c <- &Lecture{
+		StoreName:      fmt.Sprintf("%s %s", homeplus, storeName),
+		Group:          group,
+		Title:          title,
+		Teacher:        ld.TeacherName,
+		StartDate:      startDate,
+		StartTime:      startTime,
+		EndTime:        endTime,
+		DayOfTheWeek:   dayOfTheWeek + "요일",
+		Price:          price + "원",
+		Count:          count + "회",
+		Status:         status,
+		DetailPageUrl:  fmt.Sprintf("%s/Lecture/SearchLectureDetail.aspx?LectureMasterID=%s", homeplusCultureBaseURL, ld.LectureMasterID),
+		ScrapeExcluded: false,
 	}
 }

@@ -1,4 +1,4 @@
-package scrape
+package culture
 
 import (
 	"fmt"
@@ -15,13 +15,13 @@ const (
 	emart = "이마트"
 
 	emartCultureBaseURL = "http://culture.emart.com"
-
-	// 검색년도
-	emartSearchYearCode = SearchYear
-
-	// 검색시즌 코드(S1 ~ S4)
-	emartSearchSmstCode = "S" + SearchSeasonCode
 )
+
+// 검색년도@@@@@ 함수 인자로 받기
+var emartSearchYearCode = SearchYear
+
+// 검색시즌 코드(S1 ~ S4)@@@@@ 함수 인자로 받기
+var emartSearchSmstCode = "S" + SearchSeasonCode
 
 /*
  * 점포
@@ -49,12 +49,12 @@ var emartGroupCodeMap = map[string]string{
 	"50": "8주 단기 강좌",
 }
 
-func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
+func ScrapeEmartCultureLecture(mainC chan<- []Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s년도 %s)", emart, emartSearchYearCode, emartSearchSmstCode)
 
 	var wait sync.WaitGroup
 
-	c := make(chan *cultureLecture, 10)
+	c := make(chan *Lecture, 10)
 
 	count := 0
 	for storeCode, storeName := range emartStoreCodeMap {
@@ -85,22 +85,22 @@ func scrapeEmartCultureLecture(mainC chan<- []cultureLecture) {
 
 	wait.Wait()
 
-	var cultureLectures []cultureLecture
+	var lectures []Lecture
 	for i := 0; i < count; i++ {
-		cultureLecture := <-c
-		if len(cultureLecture.title) > 0 {
-			cultureLectures = append(cultureLectures, *cultureLecture)
+		lecture := <-c
+		if len(lecture.Title) > 0 {
+			lectures = append(lectures, *lecture)
 		}
 	}
 
-	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", emart, len(cultureLectures))
+	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", emart, len(lectures))
 
-	mainC <- cultureLectures
+	mainC <- lectures
 }
 
-func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.Selection, c chan<- *cultureLecture) {
+func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.Selection, c chan<- *Lecture) {
 	if helpers.CleanString(s.Text()) == "검색된 강좌가 없습니다." {
-		c <- &cultureLecture{}
+		c <- &Lecture{}
 	} else {
 		// 강좌의 컬럼 개수를 확인한다.
 		ls := s.Find("td")
@@ -163,20 +163,20 @@ func extractEmartCultureLecture(clPageURL string, storeName string, s *goquery.S
 			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:%s)", emart, clPageURL)
 		}
 
-		c <- &cultureLecture{
-			storeName:      fmt.Sprintf("%s %s", emart, storeName),
-			group:          "",
-			title:          lectureCol1,
-			teacher:        "",
-			startDate:      startDate,
-			startTime:      startTime,
-			endTime:        endTime,
-			dayOfTheWeek:   dayOfTheWeek + "요일",
-			price:          lectureCol4,
-			count:          count,
-			status:         status,
-			detailPageUrl:  emartCultureBaseURL + helpers.CleanString(detailPageUrl),
-			scrapeExcluded: false,
+		c <- &Lecture{
+			StoreName:      fmt.Sprintf("%s %s", emart, storeName),
+			Group:          "",
+			Title:          lectureCol1,
+			Teacher:        "",
+			StartDate:      startDate,
+			StartTime:      startTime,
+			EndTime:        endTime,
+			DayOfTheWeek:   dayOfTheWeek + "요일",
+			Price:          lectureCol4,
+			Count:          count,
+			Status:         status,
+			DetailPageUrl:  emartCultureBaseURL + helpers.CleanString(detailPageUrl),
+			ScrapeExcluded: false,
 		}
 	}
 }

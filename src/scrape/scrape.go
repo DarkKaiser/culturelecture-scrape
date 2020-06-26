@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"scrape/culture"
 	"strconv"
 	"strings"
 	"time"
@@ -17,19 +18,18 @@ import (
 /********************************************************************************/
 /* 강좌 수집 작업시에 변경되는 값 BEGIN                                              */
 /****************************************************************************** */
-const (
-	// 검색년도
-	SearchYear = "2020"
 
-	// 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
-	SearchSeasonCode = "2"
+// 검색년도@@@@@  함수 인자로 받기
+var SearchYear = "2020"
 
-	// 강좌를 수강하는 아이 개월수
-	ChildrenMonths = 51
+// 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)@@@@@  함수 인자로 받기
+var SearchSeasonCode = "2"
 
-	// 강좌를 수강하는 아이 나이
-	ChildrenAge = 5
-)
+// 강좌를 수강하는 아이 개월수@@@@@  함수 인자로 받기
+var ChildrenMonths = 51
+
+// 강좌를 수강하는 아이 나이@@@@@  함수 인자로 받기
+var ChildrenAge = 5
 
 // 2020년도 공휴일
 var Holidays = []string{
@@ -46,26 +46,15 @@ var Holidays = []string{
 	"2020-12-25",
 }
 
+func init() {
+	// @@@@@ 삭제대상
+	culture.SearchYear = SearchYear
+	culture.SearchSeasonCode = SearchSeasonCode
+}
+
 /********************************************************************************/
 /* 강좌 수집 작업시에 변경되는 값 END                                                */
 /****************************************************************************** */
-
-// 접수상태
-type ReceptionStatus uint
-
-// 지원가능한 접수상태 값
-const (
-	ReceptionStatusUnknown                   = iota // 알수없음
-	ReceptionStatusPossible                         // 접수가능
-	ReceptionStatusClosed                           // 접수마감
-	ReceptionStatusStnadBy                          // 대기신청
-	ReceptionStatusVisitConsultation                // 방문상담
-	ReceptionStatusVisitFirstComeFirstServed        // 방문선착순
-	ReceptionStatusDayParticipation                 // 당일참여
-)
-
-// 지원가능한 접수상태 문자열
-var ReceptionStatusString = []string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "당일참여"}
 
 // 연령제한타입
 type AgeLimitType int
@@ -77,39 +66,23 @@ const (
 	AgeLimitTypeMonths         // 개월수
 )
 
-type cultureLecture struct {
-	storeName      string          // 점포
-	group          string          // 강좌그룹
-	title          string          // 강좌명
-	teacher        string          // 강사명
-	startDate      string          // 개강일(YYYY-MM-DD)
-	startTime      string          // 시작시간(hh:mm) : 24시간 형식
-	endTime        string          // 종료시간(hh:mm) : 24시간 형식
-	dayOfTheWeek   string          // 요일
-	price          string          // 수강료
-	count          string          // 강좌횟수
-	status         ReceptionStatus // 접수상태
-	detailPageUrl  string          // 상세페이지
-	scrapeExcluded bool            // 필터링에 걸려서 파일 저장시 제외되는지의 여부(csv 파일에 포함되지 않는다)
-}
-
 func Scrape() {
 	/**
 	 * 문화센터 강좌 수집
 	 */
 	log.Println("문화센터 강좌 수집을 시작합니다.")
 
-	c := make(chan []cultureLecture, 3)
+	c := make(chan []culture.Lecture, 3)
 
 	var goroutineCount = 0
-	go scrapeEmartCultureLecture(c)
+	go culture.ScrapeEmartCultureLecture(c)
 	goroutineCount++
-	go scrapeLottemartCultureLecture(c)
+	go culture.ScrapeLottemartCultureLecture(c)
 	goroutineCount++
-	go scrapeHomeplusCultureLecture(c)
+	go culture.ScrapeHomeplusCultureLecture(c)
 	goroutineCount++
 
-	var cultureLectures []cultureLecture
+	var cultureLectures []culture.Lecture
 	for i := 0; i < goroutineCount; i++ {
 		cultureLecturesScraped := <-c
 		cultureLectures = append(cultureLectures, cultureLecturesScraped...)
@@ -149,23 +122,23 @@ func Scrape() {
 	writeCultureLectures(cultureLectures, latestScrapedCultureLectures)
 }
 
-func filtering(cultureLectures []cultureLecture) {
+func filtering(cultureLectures []culture.Lecture) {
 	// 접수상태가 접수마감인 강좌를 제외한다.
 	for i, cultureLecture := range cultureLectures {
-		if cultureLecture.status == ReceptionStatusClosed {
-			cultureLectures[i].scrapeExcluded = true
+		if cultureLecture.Status == culture.ReceptionStatusClosed {
+			cultureLectures[i].ScrapeExcluded = true
 		}
 	}
 
 	// 주말 및 공휴일이 아닌 평일 16시 이전의 강좌를 제외한다.
 	weekdays := []string{"월요일", "화요일", "수요일", "목요일", "금요일"}
 	for i, cultureLecture := range cultureLectures {
-		if helpers.Contains(weekdays, cultureLecture.dayOfTheWeek) == true && helpers.Contains(Holidays, cultureLecture.startDate) == false {
-			h24, err := strconv.Atoi(cultureLecture.startTime[:2])
+		if helpers.Contains(weekdays, cultureLecture.DayOfTheWeek) == true && helpers.Contains(Holidays, cultureLecture.StartDate) == false {
+			h24, err := strconv.Atoi(cultureLecture.StartTime[:2])
 			helpers.CheckErr(err)
 
 			if h24 < 16 {
-				cultureLectures[i].scrapeExcluded = true
+				cultureLectures[i].ScrapeExcluded = true
 			}
 		}
 	}
@@ -176,18 +149,18 @@ func filtering(cultureLectures []cultureLecture) {
 
 		if alType == AgeLimitTypeMonths {
 			if ChildrenMonths < from || ChildrenMonths > to {
-				cultureLectures[i].scrapeExcluded = true
+				cultureLectures[i].ScrapeExcluded = true
 			}
 		} else if alType == AgeLimitTypeAge {
 			if ChildrenAge < from || ChildrenAge > to {
-				cultureLectures[i].scrapeExcluded = true
+				cultureLectures[i].ScrapeExcluded = true
 			}
 		}
 	}
 
 	count := 0
 	for _, cultureLecture := range cultureLectures {
-		if cultureLecture.scrapeExcluded == true {
+		if cultureLecture.ScrapeExcluded == true {
 			count++
 		}
 	}
@@ -195,10 +168,10 @@ func filtering(cultureLectures []cultureLecture) {
 	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(cultureLectures), count)
 }
 
-func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int, int) {
+func extractAgeOrMonthsRange(cultureLecture *culture.Lecture) (AgeLimitType, int, int) {
 	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
 	for _, v := range []string{"키즈발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
-		if strings.Contains(cultureLecture.title, v) == true {
+		if strings.Contains(cultureLecture.Title, v) == true {
 			return AgeLimitTypeAge, 99, 99
 		}
 	}
@@ -211,7 +184,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 		// n세이상, n세 이상, n세~성인, n세~ 성인
 		// n개월이상, n개월 이상, n개월~성인, n개월~ 성인
 		for _, v := range []string{alTypeString + "이상", alTypeString + " 이상", alTypeString + "~성인", alTypeString + "~ 성인"} {
-			fs := regexp.MustCompile("[0-9]{1,2}" + v).FindString(cultureLecture.title)
+			fs := regexp.MustCompile("[0-9]{1,2}" + v).FindString(cultureLecture.Title)
 			if len(fs) > 0 {
 				from, err := strconv.Atoi(strings.ReplaceAll(fs, v, ""))
 				helpers.CheckErr(err)
@@ -222,7 +195,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 
 		// a~b세, a-b세, a세~b세, a세-b세
 		// a~b개월, a-b개월, a개월~b개월, a개월-b개월
-		fs := regexp.MustCompile(fmt.Sprintf("[0-9]{1,2}[%s]?[~-]{1}[0-9]{1,2}%s", alTypeString, alTypeString)).FindString(cultureLecture.title)
+		fs := regexp.MustCompile(fmt.Sprintf("[0-9]{1,2}[%s]?[~-]{1}[0-9]{1,2}%s", alTypeString, alTypeString)).FindString(cultureLecture.Title)
 		if len(fs) > 0 {
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
@@ -236,7 +209,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 
 		// n세~초등, n세-초등
 		// n개월~초등, n개월-초등
-		fs = regexp.MustCompile(fmt.Sprintf("[0-9]{1,2}%s[~-]{1}초등", alTypeString)).FindString(cultureLecture.title)
+		fs = regexp.MustCompile(fmt.Sprintf("[0-9]{1,2}%s[~-]{1}초등", alTypeString)).FindString(cultureLecture.Title)
 		if len(fs) > 0 {
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
@@ -253,7 +226,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 
 		// (n세)
 		// (n개월)
-		fs = regexp.MustCompile(fmt.Sprintf("\\([0-9]{1,2}%s\\)", alTypeString)).FindString(cultureLecture.title)
+		fs = regexp.MustCompile(fmt.Sprintf("\\([0-9]{1,2}%s\\)", alTypeString)).FindString(cultureLecture.Title)
 		if len(fs) > 0 {
 			no, err := strconv.Atoi(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "(", ""), ")", ""))
 			helpers.CheckErr(err)
@@ -263,7 +236,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 	}
 
 	// 초a~초b, 초a-초b
-	fs := regexp.MustCompile("초[1-6][~-]초[1-6]").FindString(cultureLecture.title)
+	fs := regexp.MustCompile("초[1-6][~-]초[1-6]").FindString(cultureLecture.Title)
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "초", ""), "-", "~"), "~")
 
@@ -281,7 +254,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 		"(초등반)": {AgeLimitTypeAge, 8, 13},
 	}
 	for k, v := range specificTextMap {
-		if strings.Contains(cultureLecture.title, k) == true {
+		if strings.Contains(cultureLecture.Title, k) == true {
 			return AgeLimitType(v[0]), v[1], v[2]
 		}
 	}
@@ -289,7 +262,7 @@ func extractAgeOrMonthsRange(cultureLecture *cultureLecture) (AgeLimitType, int,
 	return AgeLimitTypeUnknwon, 0, math.MaxInt32
 }
 
-func writeCultureLectures(cultureLectures []cultureLecture, latestScrapedCultureLectures [][]string) {
+func writeCultureLectures(cultureLectures []culture.Lecture, latestScrapedCultureLectures [][]string) {
 	log.Println("수집된 문화센터 강좌 자료를 파일로 저장합니다.")
 
 	now := time.Now()
@@ -312,23 +285,23 @@ func writeCultureLectures(cultureLectures []cultureLecture, latestScrapedCulture
 
 	count := 0
 	for _, cultureLecture := range cultureLectures {
-		if cultureLecture.scrapeExcluded == true {
+		if cultureLecture.ScrapeExcluded == true {
 			continue
 		}
 
 		r := []string{
-			cultureLecture.storeName,
-			cultureLecture.group,
-			cultureLecture.title,
-			cultureLecture.teacher,
-			cultureLecture.startDate,
-			cultureLecture.startTime,
-			cultureLecture.endTime,
-			cultureLecture.dayOfTheWeek,
-			cultureLecture.price,
-			cultureLecture.count,
-			ReceptionStatusString[cultureLecture.status],
-			cultureLecture.detailPageUrl,
+			cultureLecture.StoreName,
+			cultureLecture.Group,
+			cultureLecture.Title,
+			cultureLecture.Teacher,
+			cultureLecture.StartDate,
+			cultureLecture.StartTime,
+			cultureLecture.EndTime,
+			cultureLecture.DayOfTheWeek,
+			cultureLecture.Price,
+			cultureLecture.Count,
+			culture.ReceptionStatusString[cultureLecture.Status],
+			cultureLecture.DetailPageUrl,
 			compareLatestScrapedCultureLecture(&cultureLecture, latestScrapedCultureLectures),
 		}
 		helpers.CheckErr(w.Write(r))
@@ -338,7 +311,7 @@ func writeCultureLectures(cultureLectures []cultureLecture, latestScrapedCulture
 	log.Printf("수집된 문화센터 강좌 자료(%d건)를 파일(%s)로 저장하였습니다.", count, fname)
 }
 
-func compareLatestScrapedCultureLecture(cultureLecture *cultureLecture, latestScrapedCultureLectures [][]string) string {
+func compareLatestScrapedCultureLecture(cultureLecture *culture.Lecture, latestScrapedCultureLectures [][]string) string {
 	if latestScrapedCultureLectures == nil || (len(latestScrapedCultureLectures) == 1 && len(latestScrapedCultureLectures[0]) == 1) {
 		return "-"
 	}
@@ -348,20 +321,20 @@ func compareLatestScrapedCultureLecture(cultureLecture *cultureLecture, latestSc
 			continue
 		}
 
-		if latestScrapedCultureLecture[0] == cultureLecture.storeName &&
-			latestScrapedCultureLecture[1] == cultureLecture.group &&
-			latestScrapedCultureLecture[2] == cultureLecture.title &&
-			latestScrapedCultureLecture[3] == cultureLecture.teacher &&
-			latestScrapedCultureLecture[4] == cultureLecture.startDate &&
-			latestScrapedCultureLecture[5] == cultureLecture.startTime &&
-			latestScrapedCultureLecture[6] == cultureLecture.endTime &&
-			latestScrapedCultureLecture[8] == cultureLecture.price &&
-			latestScrapedCultureLecture[9] == cultureLecture.count &&
-			latestScrapedCultureLecture[11] == cultureLecture.detailPageUrl {
+		if latestScrapedCultureLecture[0] == cultureLecture.StoreName &&
+			latestScrapedCultureLecture[1] == cultureLecture.Group &&
+			latestScrapedCultureLecture[2] == cultureLecture.Title &&
+			latestScrapedCultureLecture[3] == cultureLecture.Teacher &&
+			latestScrapedCultureLecture[4] == cultureLecture.StartDate &&
+			latestScrapedCultureLecture[5] == cultureLecture.StartTime &&
+			latestScrapedCultureLecture[6] == cultureLecture.EndTime &&
+			latestScrapedCultureLecture[8] == cultureLecture.Price &&
+			latestScrapedCultureLecture[9] == cultureLecture.Count &&
+			latestScrapedCultureLecture[11] == cultureLecture.DetailPageUrl {
 			return "변경사항 없음"
 		}
 
-		if latestScrapedCultureLecture[11] == cultureLecture.detailPageUrl {
+		if latestScrapedCultureLecture[11] == cultureLecture.DetailPageUrl {
 			return "변경됨"
 		}
 	}
