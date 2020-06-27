@@ -25,16 +25,16 @@ const (
 	AgeLimitTypeMonths         // 개월수
 )
 
-type Scraper interface {
-	ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture)
-}
-
 type scrape struct {
 	lectures []culturelecture.Lecture
 }
 
 func NewScrape() *scrape {
 	return &scrape{}
+}
+
+type Scraper interface {
+	ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture)
 }
 
 func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {

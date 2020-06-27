@@ -42,10 +42,10 @@ var holidays = []string{
 /****************************************************************************** */
 
 func main() {
-	scrape := scrape.NewScrape()
-	scrape.Scrape(searchYearCode, searchSeasonCode)
-	scrape.Filter(childrenMonths, childrenAge, holidays)
+	s := scrape.NewScrape()
+	s.Scrape(searchYearCode, searchSeasonCode)
+	s.Filter(childrenMonths, childrenAge, holidays)
 
 	now := time.Now()
-	scrape.Save(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
+	s.Save(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
 }
