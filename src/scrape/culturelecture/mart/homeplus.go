@@ -1,4 +1,4 @@
-package culture
+package mart
 
 import (
 	"bytes"
@@ -9,30 +9,16 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"scrape/culturelecture"
 	"strconv"
 )
 
-const (
-	homeplus = "홈플러스"
+type homeplus struct {
+	name           string
+	cultureBaseUrl string
 
-	homeplusCultureBaseURL = "http://school.homeplus.co.kr"
-)
-
-/*
- * 점포
- */
-var homeplusStoreCodeMap = map[string]string{
-	"0035": "광양점",
-	"1009": "순천풍덕점",
-	"0030": "순천점",
-}
-
-/*
- * 강좌군
- */
-var homeplusGroupCodeMap = map[string]string{
-	"IF": "유아",
-	"BB": "영아",
+	storeCodeMap map[string]string // 점포
+	groupCodeMap map[string]string // 강좌군
 }
 
 /*
@@ -46,10 +32,10 @@ type homeplusLectureSearchPostData struct {
  * Convert JSON to Go struct : https://mholt.github.io/json-to-go/
  */
 type homeplusLectureSearchResults struct {
-	LectureData []lectureData `json:"d"`
+	Data []homeplusLectureSearchResultData `json:"d"`
 }
 
-type lectureData struct {
+type homeplusLectureSearchResultData struct {
 	Type                  string `json:"__type"`
 	ROWNUMBER             string `json:"ROWNUMBER"`
 	MAXCNT                string `json:"MAX_CNT"`
@@ -100,22 +86,41 @@ type lectureData struct {
 	DeadLine              string `json:"DeadLine"`
 }
 
-func ScrapeHomeplusCultureLecture(mainC chan<- []Lecture) {
-	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", homeplus)
+func NewHomeplus() *homeplus {
+	return &homeplus{
+		name: "홈플러스",
 
-	c := make(chan *Lecture, 10)
+		cultureBaseUrl: "http://school.homeplus.co.kr",
+
+		storeCodeMap: map[string]string{
+			"0035": "광양점",
+			"1009": "순천풍덕점",
+			"0030": "순천점",
+		},
+
+		groupCodeMap: map[string]string{
+			"IF": "유아",
+			"BB": "영아",
+		},
+	}
+}
+
+func (h *homeplus) ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture) {
+	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", h.name)
+
+	c := make(chan *culturelecture.Lecture, 10)
 
 	// 각 점포 및 강좌군의 검색까지 병렬화(goroutine)하면, 검색 결과의 데이터 갯수가 매번 다르게 반환되므로 병렬화를 하지 않음!!!
 	// 문제에 대한 원인은 알 수 없음
 	count := 0
-	for storeCode, storeName := range homeplusStoreCodeMap {
-		for groupCode := range homeplusGroupCodeMap {
-			clPageURL := homeplusCultureBaseURL + "/Lecture/SearchLectureInfo.aspx/LectureSearchResult"
+	for storeCode, storeName := range h.storeCodeMap {
+		for groupCode := range h.groupCodeMap {
+			clPageURL := h.cultureBaseUrl + "/Lecture/SearchLectureInfo.aspx/LectureSearchResult"
 
 			m := 1
 			n := 0
 			for {
-				lspd := generateHomeplusLectureSearchPostData(storeCode, groupCode, m, n)
+				lspd := h.generateLectureSearchPostData(storeCode, groupCode, m, n)
 				lspdJSONBytes, err := json.Marshal(lspd)
 				helpers.CheckErr(err)
 
@@ -133,13 +138,13 @@ func ScrapeHomeplusCultureLecture(mainC chan<- []Lecture) {
 				err = json.Unmarshal(resBodyBytes, &lectureSearchResults)
 				helpers.CheckErr(err)
 
-				if len(lectureSearchResults.LectureData) == 0 {
+				if len(lectureSearchResults.Data) == 0 {
 					break
 				}
 
-				for i := range lectureSearchResults.LectureData {
+				for i := range lectureSearchResults.Data {
 					count += 1
-					go extractHomeplusCultureLecture(clPageURL, storeName, &lectureSearchResults.LectureData[i], c)
+					go h.extractCultureLecture(clPageURL, storeName, &lectureSearchResults.Data[i], c)
 				}
 
 				m += 1
@@ -148,7 +153,7 @@ func ScrapeHomeplusCultureLecture(mainC chan<- []Lecture) {
 		}
 	}
 
-	var lectures []Lecture
+	var lectures []culturelecture.Lecture
 	for i := 0; i < count; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
@@ -156,12 +161,12 @@ func ScrapeHomeplusCultureLecture(mainC chan<- []Lecture) {
 		}
 	}
 
-	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", homeplus, len(lectures))
+	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", h.name, len(lectures))
 
 	mainC <- lectures
 }
 
-func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m int, n int) *homeplusLectureSearchPostData {
+func (h *homeplus) generateLectureSearchPostData(storeCode string, groupCode string, m int, n int) *homeplusLectureSearchPostData {
 	lspd := homeplusLectureSearchPostData{}
 
 	lspd.Param[0] = "H"                              // H : 홈페이지, M : 모바일
@@ -191,94 +196,94 @@ func generateHomeplusLectureSearchPostData(storeCode string, groupCode string, m
 	return &lspd
 }
 
-func extractHomeplusCultureLecture(clPageURL string, storeName string, ld *lectureData, c chan<- *Lecture) {
+func (h *homeplus) extractCultureLecture(clPageURL string, storeName string, lsrd *homeplusLectureSearchResultData, c chan<- *culturelecture.Lecture) {
 	// 강좌그룹
-	group := fmt.Sprintf("[%s] %s", helpers.CleanString(ld.LectureTargetName), helpers.CleanString(ld.LectureGroupName))
+	group := fmt.Sprintf("[%s] %s", helpers.CleanString(lsrd.LectureTargetName), helpers.CleanString(lsrd.LectureGroupName))
 	if len(group) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:%s, 분석데이터2:%s, URL:%s)", homeplus, ld.LectureTargetName, ld.LectureGroupName, clPageURL)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:%s, 분석데이터2:%s, URL:%s)", h.name, lsrd.LectureTargetName, lsrd.LectureGroupName, clPageURL)
 	}
 
 	// 강좌명
-	title := fmt.Sprintf("%s %s %s", helpers.CleanString(ld.LectureName), helpers.CleanString(ld.SubLectureName1), helpers.CleanString(ld.SubLectureName2))
+	title := fmt.Sprintf("%s %s %s", helpers.CleanString(lsrd.LectureName), helpers.CleanString(lsrd.SubLectureName1), helpers.CleanString(lsrd.SubLectureName2))
 	if len(title) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:%s, 분석데이터2:%s, 분석데이터3:%s, URL:%s)", homeplus, ld.LectureName, ld.SubLectureName1, ld.SubLectureName2, clPageURL)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:%s, 분석데이터2:%s, 분석데이터3:%s, URL:%s)", h.name, lsrd.LectureName, lsrd.SubLectureName1, lsrd.SubLectureName2, clPageURL)
 	}
 
 	// 개강일
-	startDate := helpers.CleanString(regexp.MustCompile("^[0-9]{4}-[0-9]{2}-[0-9]{2} ").FindString(ld.DateLectureFrTo))
+	startDate := helpers.CleanString(regexp.MustCompile("^[0-9]{4}-[0-9]{2}-[0-9]{2} ").FindString(lsrd.DateLectureFrTo))
 	if len(startDate) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", homeplus, ld.DateLectureFrTo, clPageURL)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, lsrd.DateLectureFrTo, clPageURL)
 	}
 
 	// 시작시간, 종료시간
-	startTime := regexp.MustCompile("[0-9]{2}:[0-9]{2} ~").FindString(ld.LectureTime)
-	endTime := regexp.MustCompile("~ [0-9]{2}:[0-9]{2}").FindString(ld.LectureTime)
+	startTime := regexp.MustCompile("[0-9]{2}:[0-9]{2} ~").FindString(lsrd.LectureTime)
+	endTime := regexp.MustCompile("~ [0-9]{2}:[0-9]{2}").FindString(lsrd.LectureTime)
 	if len(startDate) == 0 || len(endTime) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", homeplus, ld.LectureTime, clPageURL)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, lsrd.LectureTime, clPageURL)
 	}
 	startTime = helpers.CleanString(startTime[:len(startTime)-1])
 	endTime = helpers.CleanString(endTime[1:])
 
 	// 요일
-	dayOfTheWeek := helpers.CleanString(regexp.MustCompile("^[월화수목금토일]{1} ").FindString(ld.LectureTime))
+	dayOfTheWeek := helpers.CleanString(regexp.MustCompile("^[월화수목금토일] ").FindString(lsrd.LectureTime))
 	if len(dayOfTheWeek) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", homeplus, ld.LectureTime, clPageURL)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, lsrd.LectureTime, clPageURL)
 	}
 
 	// 수강료
 	price := "0"
-	if ld.IsShowDcFee == "Y" {
-		num, err := strconv.Atoi(ld.TuitionFeeDC)
+	if lsrd.IsShowDcFee == "Y" {
+		num, err := strconv.Atoi(lsrd.TuitionFeeDC)
 		helpers.CheckErr(err)
 
 		price = helpers.FormatCommas(num)
 	} else {
-		num, err := strconv.Atoi(ld.TuitionFee)
+		num, err := strconv.Atoi(lsrd.TuitionFee)
 		helpers.CheckErr(err)
 
 		price = helpers.FormatCommas(num)
 	}
 	if len(price) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:%s, 분석데이터2:%s, URL:%s)", homeplus, ld.TuitionFee, ld.TuitionFeeDC, clPageURL)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터1:%s, 분석데이터2:%s, URL:%s)", h.name, lsrd.TuitionFee, lsrd.TuitionFeeDC, clPageURL)
 	}
 
 	// 강좌횟수
-	count := helpers.CleanString(ld.ClassCount)
+	count := helpers.CleanString(lsrd.ClassCount)
 	if len(count) == 0 || regexp.MustCompile(`^[0-9]+$`).MatchString(count) == false {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", homeplus, ld.ClassCount, clPageURL)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, lsrd.ClassCount, clPageURL)
 	}
 
 	// 접수상태
-	var status ReceptionStatus = ReceptionStatusUnknown
-	switch ld.LectureStatus {
+	var status culturelecture.ReceptionStatus = culturelecture.ReceptionStatusUnknown
+	switch lsrd.LectureStatus {
 	case "1":
-		if ld.AdmitValid == "Y" {
-			status = ReceptionStatusPossible
+		if lsrd.AdmitValid == "Y" {
+			status = culturelecture.ReceptionStatusPossible
 		}
 	case "2":
-		if ld.AdmitValid == "Y" {
-			status = ReceptionStatusStnadBy
+		if lsrd.AdmitValid == "Y" {
+			status = culturelecture.ReceptionStatusStnadBy
 		}
 	case "3":
-		status = ReceptionStatusVisitConsultation
+		status = culturelecture.ReceptionStatusVisitConsultation
 	case "4":
-		status = ReceptionStatusClosed
+		status = culturelecture.ReceptionStatusClosed
 	case "8":
-		status = ReceptionStatusVisitFirstComeFirstServed
+		status = culturelecture.ReceptionStatusVisitFirstComeFirstServed
 	case "9":
-		status = ReceptionStatusDayParticipation
+		status = culturelecture.ReceptionStatusDayParticipation
 	}
 
 	// 상세페이지
-	if len(helpers.CleanString(ld.LectureMasterID)) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지로 이동하기 위해 필요한 [ LectureMasterID ] 값이 비어 있습니다, URL:%s)", homeplus, clPageURL)
+	if len(helpers.CleanString(lsrd.LectureMasterID)) == 0 {
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지로 이동하기 위해 필요한 [ LectureMasterID ] 값이 비어 있습니다, URL:%s)", h.name, clPageURL)
 	}
 
-	c <- &Lecture{
-		StoreName:      fmt.Sprintf("%s %s", homeplus, storeName),
+	c <- &culturelecture.Lecture{
+		StoreName:      fmt.Sprintf("%s %s", h.name, storeName),
 		Group:          group,
 		Title:          title,
-		Teacher:        ld.TeacherName,
+		Teacher:        lsrd.TeacherName,
 		StartDate:      startDate,
 		StartTime:      startTime,
 		EndTime:        endTime,
@@ -286,7 +291,7 @@ func extractHomeplusCultureLecture(clPageURL string, storeName string, ld *lectu
 		Price:          price + "원",
 		Count:          count + "회",
 		Status:         status,
-		DetailPageUrl:  fmt.Sprintf("%s/Lecture/SearchLectureDetail.aspx?LectureMasterID=%s", homeplusCultureBaseURL, ld.LectureMasterID),
+		DetailPageUrl:  fmt.Sprintf("%s/Lecture/SearchLectureDetail.aspx?LectureMasterID=%s", h.cultureBaseUrl, lsrd.LectureMasterID),
 		ScrapeExcluded: false,
 	}
 }
