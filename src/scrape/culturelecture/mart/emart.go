@@ -62,12 +62,12 @@ func NewEmart(searchYear string, searchSeasonCode string) *emart {
 	}
 }
 
-func (e *emart) ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture) {
+func (e *emart) ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s년도 %s)", e.name, e.searchYearCode, e.searchSmstCode)
 
 	var wait sync.WaitGroup
 
-	c := make(chan *culturelecture.Lecture, 10)
+	c := make(chan *culturelecture.Lecture, 100)
 
 	count := 0
 	for storeCode, storeName := range e.storeCodeMap {
@@ -76,9 +76,9 @@ func (e *emart) ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture) {
 			go func(storeCode string, storeName string, groupCode string) {
 				defer wait.Done()
 
-				clPageURL := fmt.Sprintf("%s/lecture/lecture/list?year_code=%s&smst_code=%s&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=%s&group_code=%s&lect_name=", e.cultureBaseUrl, e.searchYearCode, e.searchSmstCode, storeCode, groupCode)
+				clPageUrl := fmt.Sprintf("%s/lecture/lecture/list?year_code=%s&smst_code=%s&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=%s&group_code=%s&lect_name=", e.cultureBaseUrl, e.searchYearCode, e.searchSmstCode, storeCode, groupCode)
 
-				res, err := http.Get(clPageURL)
+				res, err := http.Get(clPageUrl)
 				helpers.CheckErr(err)
 				helpers.CheckStatusCode(res)
 
@@ -90,7 +90,7 @@ func (e *emart) ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture) {
 				clSelection := doc.Find("div.board_list > table > tbody > tr")
 				clSelection.Each(func(i int, s *goquery.Selection) {
 					count += 1
-					go e.extractCultureLecture(clPageURL, storeName, s, c)
+					go e.extractCultureLecture(clPageUrl, storeName, s, c)
 				})
 			}(storeCode, storeName, groupCode)
 		}
@@ -111,14 +111,14 @@ func (e *emart) ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture) {
 	mainC <- lectures
 }
 
-func (e *emart) extractCultureLecture(clPageURL string, storeName string, s *goquery.Selection, c chan<- *culturelecture.Lecture) {
+func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goquery.Selection, c chan<- *culturelecture.Lecture) {
 	if helpers.CleanString(s.Text()) == "검색된 강좌가 없습니다." {
 		c <- &culturelecture.Lecture{}
 	} else {
 		// 강좌의 컬럼 개수를 확인한다.
 		ls := s.Find("td")
 		if ls.Length() != 5 {
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", e.name, ls.Length(), clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", e.name, ls.Length(), clPageUrl)
 		}
 
 		lectureCol1 := helpers.CleanString(ls.Eq(0 /* 강좌명 */).Text())
@@ -130,31 +130,31 @@ func (e *emart) extractCultureLecture(clPageURL string, storeName string, s *goq
 		// 개강일
 		startDate := regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}").FindString(lectureCol2)
 		if len(startDate) == 0 {
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol2, clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol2, clPageUrl)
 		}
 
 		// 시작시간, 종료시간
 		startTime := regexp.MustCompile("^[0-9]{2}:[0-9]{2}").FindString(lectureCol3)
 		endTime := strings.TrimSpace(regexp.MustCompile(" [0-9]{2}:[0-9]{2} ").FindString(lectureCol3))
 		if len(startDate) == 0 || len(endTime) == 0 {
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol3, clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol3, clPageUrl)
 		}
 
 		// 요일
 		dayOfTheWeek := regexp.MustCompile("[월화수목금토일]$").FindString(lectureCol3)
 		if len(dayOfTheWeek) == 0 {
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol3, clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol3, clPageUrl)
 		}
 
 		// 수강료
 		if strings.Contains(lectureCol4, "원") == false {
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol4, clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol4, clPageUrl)
 		}
 
 		// 강좌횟수
 		count := regexp.MustCompile("[0-9]{1,3}회").FindString(lectureCol2)
 		if len(count) == 0 {
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol2, clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", e.name, lectureCol2, clPageUrl)
 		}
 
 		// 접수상태
@@ -167,13 +167,13 @@ func (e *emart) extractCultureLecture(clPageURL string, storeName string, s *goq
 		case "대기신청":
 			status = culturelecture.ReceptionStatusStnadBy
 		default:
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", e.name, lectureCol5, clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", e.name, lectureCol5, clPageUrl)
 		}
 
 		// 상세페이지
 		detailPageUrl, exists := ls.Eq(0).Find("a").Attr("href")
 		if exists == false {
-			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:%s)", e.name, clPageURL)
+			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:%s)", e.name, clPageUrl)
 		}
 
 		c <- &culturelecture.Lecture{

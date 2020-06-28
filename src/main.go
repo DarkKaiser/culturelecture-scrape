@@ -22,7 +22,7 @@ var childrenMonths = 51
 // 강좌를 수강하는 아이 나이
 var childrenAge = 5
 
-// 2020년도 공휴일
+// 공휴일(2020년도)
 var holidays = []string{
 	"2020-01-01",
 	"2020-01-24", "2020-01-25", "2020-01-26", "2020-01-27",
@@ -42,10 +42,19 @@ var holidays = []string{
 /****************************************************************************** */
 
 func main() {
+	fmt.Println("########################################################")
+	fmt.Println("###                                                  ###")
+	fmt.Println("###           scrape-culturelecture 0.0.1            ###")
+	fmt.Println("###                                                  ###")
+	fmt.Println("###                         developed by DarkKaiser  ###")
+	fmt.Println("###                                                  ###")
+	fmt.Println("########################################################")
+	fmt.Println("")
+
 	s := scrape.NewScrape()
 	s.Scrape(searchYearCode, searchSeasonCode)
 	s.Filter(childrenMonths, childrenAge, holidays)
 
 	now := time.Now()
-	s.Save(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
+	s.ExportCSV(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
 }

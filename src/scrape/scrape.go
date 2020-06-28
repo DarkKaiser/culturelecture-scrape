@@ -34,7 +34,7 @@ func NewScrape() *scrape {
 }
 
 type Scraper interface {
-	ScrapeCultureLecture(mainC chan<- []culturelecture.Lecture)
+	ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture)
 }
 
 func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
@@ -55,7 +55,7 @@ func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
 
 	c := make(chan []culturelecture.Lecture, len(scrapers))
 	for _, scraper := range scrapers {
-		go scraper.ScrapeCultureLecture(c)
+		go scraper.ScrapeCultureLectures(c)
 	}
 
 	s.lectures = nil
@@ -90,7 +90,7 @@ func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) 
 
 	// 개월수 및 나이에 포함되지 않는 강좌는 제외한다.
 	for i, lecture := range s.lectures {
-		alType, from, to := s.extractAgeOrMonthsRange(&lecture)
+		alType, from, to := s.extractMonthsOrAgeRange(&lecture)
 
 		if alType == AgeLimitTypeMonths {
 			if childrenMonths < from || childrenMonths > to {
@@ -113,7 +113,7 @@ func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) 
 	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(s.lectures), count)
 }
 
-func (s *scrape) extractAgeOrMonthsRange(lecture *culturelecture.Lecture) (AgeLimitType, int, int) {
+func (s *scrape) extractMonthsOrAgeRange(lecture *culturelecture.Lecture) (AgeLimitType, int, int) {
 	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
 	for _, v := range []string{"키즈발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
 		if strings.Contains(lecture.Title, v) == true {
@@ -207,32 +207,32 @@ func (s *scrape) extractAgeOrMonthsRange(lecture *culturelecture.Lecture) (AgeLi
 	return AgeLimitTypeUnknwon, 0, math.MaxInt32
 }
 
-func (s *scrape) Save(fileName string) {
+func (s *scrape) ExportCSV(fileName string) {
 	/**
 	 * 최근에 수집된 문화센터 강좌 자료 로드
 	 */
-	const latestScrapedLecturesFileName = "culturelecture-scrape-latest.csv"
+	const latestScrapedCultureLecturesFileName = "culturelecture-scrape-latest.csv"
 
 	var latestScrapedCultureLectures [][]string
-	f, _ := os.Open(latestScrapedLecturesFileName)
+	f, _ := os.Open(latestScrapedCultureLecturesFileName)
 	if f == nil {
-		log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)가 존재하지 않습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedLecturesFileName))
+		log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)가 존재하지 않습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedCultureLecturesFileName))
 	} else {
 		defer f.Close()
 
 		r := csv.NewReader(bufio.NewReader(f))
 		latestScrapedCultureLectures, _ = r.ReadAll()
 		if latestScrapedCultureLectures == nil {
-			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드할 수 없습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedLecturesFileName))
+			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드할 수 없습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedCultureLecturesFileName))
 		} else {
-			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드하였습니다.", latestScrapedLecturesFileName))
+			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드하였습니다.", latestScrapedCultureLecturesFileName))
 		}
 	}
 
 	/**
-	 * 파일저장
+	 * CSV 파일저장
 	 */
-	log.Println("수집된 문화센터 강좌 자료를 파일로 저장합니다.")
+	log.Println("수집된 문화센터 강좌 자료를 CSV 파일로 저장합니다.")
 
 	f, err := os.Create(fileName)
 	helpers.CheckErr(err)
@@ -268,16 +268,16 @@ func (s *scrape) Save(fileName string) {
 			lecture.Count,
 			culturelecture.ReceptionStatusString[lecture.Status],
 			lecture.DetailPageUrl,
-			s.compareLatestScrapedCultureLecture(&lecture, latestScrapedCultureLectures),
+			s.checkChangesWithLatestScrapedCultureLectures(&lecture, latestScrapedCultureLectures),
 		}
 		helpers.CheckErr(w.Write(r))
 		count++
 	}
 
-	log.Printf("수집된 문화센터 강좌 자료(%d건)를 파일(%s)로 저장하였습니다.", count, fileName)
+	log.Printf("수집된 문화센터 강좌 자료(%d건)를 CSV 파일(%s)로 저장하였습니다.", count, fileName)
 }
 
-func (s *scrape) compareLatestScrapedCultureLecture(lecture *culturelecture.Lecture, latestScrapedCultureLectures [][]string) string {
+func (s *scrape) checkChangesWithLatestScrapedCultureLectures(lecture *culturelecture.Lecture, latestScrapedCultureLectures [][]string) string {
 	if latestScrapedCultureLectures == nil || (len(latestScrapedCultureLectures) == 1 && len(latestScrapedCultureLectures[0]) == 1) {
 		return "-"
 	}
