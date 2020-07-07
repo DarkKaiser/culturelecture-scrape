@@ -1,4 +1,4 @@
-package culturelecture
+package lectures
 
 type Lecture struct {
 	StoreName      string          // 점포

@@ -1,4 +1,4 @@
-package mart
+package culture
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
-	"scrape/culturelecture"
+	"scrape/lectures"
 	"strings"
 	"sync"
 )
@@ -62,12 +62,12 @@ func NewEmart(searchYear string, searchSeasonCode string) *emart {
 	}
 }
 
-func (e *emart) ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture) {
+func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s년도 %s)", e.name, e.searchYearCode, e.searchSmstCode)
 
 	var wait sync.WaitGroup
 
-	c := make(chan *culturelecture.Lecture, 100)
+	c := make(chan *lectures.Lecture, 100)
 
 	count := 0
 	for storeCode, storeName := range e.storeCodeMap {
@@ -98,7 +98,7 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture) {
 
 	wait.Wait()
 
-	var lectures []culturelecture.Lecture
+	var lectures []lectures.Lecture
 	for i := 0; i < count; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
@@ -111,9 +111,9 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture) {
 	mainC <- lectures
 }
 
-func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goquery.Selection, c chan<- *culturelecture.Lecture) {
+func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
 	if helpers.CleanString(s.Text()) == "검색된 강좌가 없습니다." {
-		c <- &culturelecture.Lecture{}
+		c <- &lectures.Lecture{}
 	} else {
 		// 강좌의 컬럼 개수를 확인한다.
 		ls := s.Find("td")
@@ -158,14 +158,14 @@ func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goq
 		}
 
 		// 접수상태
-		var status culturelecture.ReceptionStatus = culturelecture.ReceptionStatusUnknown
+		var status lectures.ReceptionStatus = lectures.ReceptionStatusUnknown
 		switch lectureCol5 {
 		case "접수가능":
-			status = culturelecture.ReceptionStatusPossible
+			status = lectures.ReceptionStatusPossible
 		case "접수 마감":
-			status = culturelecture.ReceptionStatusClosed
+			status = lectures.ReceptionStatusClosed
 		case "대기신청":
-			status = culturelecture.ReceptionStatusStnadBy
+			status = lectures.ReceptionStatusStnadBy
 		default:
 			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", e.name, lectureCol5, clPageUrl)
 		}
@@ -176,7 +176,7 @@ func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goq
 			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지 주소를 찾을 수 없습니다, URL:%s)", e.name, clPageUrl)
 		}
 
-		c <- &culturelecture.Lecture{
+		c <- &lectures.Lecture{
 			StoreName:      fmt.Sprintf("%s %s", e.name, storeName),
 			Group:          "",
 			Title:          lectureCol1,

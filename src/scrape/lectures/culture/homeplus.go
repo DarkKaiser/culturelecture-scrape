@@ -1,4 +1,4 @@
-package mart
+package culture
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
-	"scrape/culturelecture"
+	"scrape/lectures"
 	"strconv"
 )
 
@@ -105,10 +105,10 @@ func NewHomeplus() *homeplus {
 	}
 }
 
-func (h *homeplus) ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture) {
+func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", h.name)
 
-	c := make(chan *culturelecture.Lecture, 100)
+	c := make(chan *lectures.Lecture, 100)
 
 	// 각 점포 및 강좌군의 검색까지 병렬화(goroutine)하면, 검색 결과의 데이터 갯수가 매번 다르게 반환되므로 병렬화를 하지 않음!!!
 	// 문제에 대한 원인은 알 수 없음
@@ -153,7 +153,7 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture) 
 		}
 	}
 
-	var lectures []culturelecture.Lecture
+	var lectures []lectures.Lecture
 	for i := 0; i < count; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
@@ -196,7 +196,7 @@ func (h *homeplus) newLectureSearchPostData(storeCode string, groupCode string, 
 	return &lspd
 }
 
-func (h *homeplus) extractCultureLecture(clPageUrl string, storeName string, lsrd *homeplusLectureSearchResultData, c chan<- *culturelecture.Lecture) {
+func (h *homeplus) extractCultureLecture(clPageUrl string, storeName string, lsrd *homeplusLectureSearchResultData, c chan<- *lectures.Lecture) {
 	// 강좌그룹
 	group := fmt.Sprintf("[%s] %s", helpers.CleanString(lsrd.LectureTargetName), helpers.CleanString(lsrd.LectureGroupName))
 	if len(group) == 0 {
@@ -254,24 +254,24 @@ func (h *homeplus) extractCultureLecture(clPageUrl string, storeName string, lsr
 	}
 
 	// 접수상태
-	var status culturelecture.ReceptionStatus = culturelecture.ReceptionStatusUnknown
+	var status lectures.ReceptionStatus = lectures.ReceptionStatusUnknown
 	switch lsrd.LectureStatus {
 	case "1":
 		if lsrd.AdmitValid == "Y" {
-			status = culturelecture.ReceptionStatusPossible
+			status = lectures.ReceptionStatusPossible
 		}
 	case "2":
 		if lsrd.AdmitValid == "Y" {
-			status = culturelecture.ReceptionStatusStnadBy
+			status = lectures.ReceptionStatusStnadBy
 		}
 	case "3":
-		status = culturelecture.ReceptionStatusVisitConsultation
+		status = lectures.ReceptionStatusVisitConsultation
 	case "4":
-		status = culturelecture.ReceptionStatusClosed
+		status = lectures.ReceptionStatusClosed
 	case "8":
-		status = culturelecture.ReceptionStatusVisitFirstComeFirstServed
+		status = lectures.ReceptionStatusVisitFirstComeFirstServed
 	case "9":
-		status = culturelecture.ReceptionStatusDayParticipation
+		status = lectures.ReceptionStatusDayParticipation
 	}
 
 	// 상세페이지
@@ -279,7 +279,7 @@ func (h *homeplus) extractCultureLecture(clPageUrl string, storeName string, lsr
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(상세페이지로 이동하기 위해 필요한 [ LectureMasterID ] 값이 비어 있습니다, URL:%s)", h.name, clPageUrl)
 	}
 
-	c <- &culturelecture.Lecture{
+	c <- &lectures.Lecture{
 		StoreName:      fmt.Sprintf("%s %s", h.name, storeName),
 		Group:          group,
 		Title:          title,

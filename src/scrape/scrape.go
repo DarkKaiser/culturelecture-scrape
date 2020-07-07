@@ -9,8 +9,8 @@ import (
 	"math"
 	"os"
 	"regexp"
-	"scrape/culturelecture"
-	"scrape/culturelecture/mart"
+	"scrape/lectures"
+	"scrape/lectures/culture"
 	"strconv"
 	"strings"
 )
@@ -26,15 +26,15 @@ const (
 )
 
 type scrape struct {
-	lectures []culturelecture.Lecture
+	lectures []lectures.Lecture
 }
 
-func NewScrape() *scrape {
+func New() *scrape {
 	return &scrape{}
 }
 
 type Scraper interface {
-	ScrapeCultureLectures(mainC chan<- []culturelecture.Lecture)
+	ScrapeCultureLectures(mainC chan<- []lectures.Lecture)
 }
 
 func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
@@ -48,12 +48,12 @@ func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
 	}
 
 	scrapers := []Scraper{
-		mart.NewHomeplus(),
-		mart.NewLottemart(searchYear, searchSeasonCode),
-		mart.NewEmart(searchYear, searchSeasonCode),
+		culture.NewHomeplus(),
+		culture.NewLottemart(searchYear, searchSeasonCode),
+		culture.NewEmart(searchYear, searchSeasonCode),
 	}
 
-	c := make(chan []culturelecture.Lecture, len(scrapers))
+	c := make(chan []lectures.Lecture, len(scrapers))
 	for _, scraper := range scrapers {
 		go scraper.ScrapeCultureLectures(c)
 	}
@@ -70,7 +70,7 @@ func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
 func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) {
 	// 접수상태가 접수마감인 강좌를 제외한다.
 	for i, lecture := range s.lectures {
-		if lecture.Status == culturelecture.ReceptionStatusClosed {
+		if lecture.Status == lectures.ReceptionStatusClosed {
 			s.lectures[i].ScrapeExcluded = true
 		}
 	}
@@ -113,7 +113,7 @@ func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) 
 	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(s.lectures), count)
 }
 
-func (s *scrape) extractMonthsOrAgeRange(lecture *culturelecture.Lecture) (AgeLimitType, int, int) {
+func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitType, int, int) {
 	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
 	for _, v := range []string{"키즈발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
 		if strings.Contains(lecture.Title, v) == true {
@@ -266,7 +266,7 @@ func (s *scrape) ExportCSV(fileName string) {
 			lecture.DayOfTheWeek,
 			lecture.Price,
 			lecture.Count,
-			culturelecture.ReceptionStatusString[lecture.Status],
+			lectures.ReceptionStatusString[lecture.Status],
 			lecture.DetailPageUrl,
 			s.checkChangesWithLatestScrapedCultureLectures(&lecture, latestScrapedCultureLectures),
 		}
@@ -277,7 +277,7 @@ func (s *scrape) ExportCSV(fileName string) {
 	log.Printf("수집된 문화센터 강좌 자료(%d건)를 CSV 파일(%s)로 저장하였습니다.", count, fileName)
 }
 
-func (s *scrape) checkChangesWithLatestScrapedCultureLectures(lecture *culturelecture.Lecture, latestScrapedCultureLectures [][]string) string {
+func (s *scrape) checkChangesWithLatestScrapedCultureLectures(lecture *lectures.Lecture, latestScrapedCultureLectures [][]string) string {
 	if latestScrapedCultureLectures == nil || (len(latestScrapedCultureLectures) == 1 && len(latestScrapedCultureLectures[0]) == 1) {
 		return "-"
 	}
