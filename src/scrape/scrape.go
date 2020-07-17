@@ -20,12 +20,12 @@ type AgeLimitType int
 
 // 지원가능한 연령제한타입 값
 const (
-	AgeLimitTypeUnknwon AgeLimitType = iota // 알수없음
-	AgeLimitTypeAge                         // 나이
-	AgeLimitTypeMonths                      // 개월수
+	AgeLimitUnknwon AgeLimitType = iota // 알수없음
+	AgeLimitAge                         // 나이
+	AgeLimitMonths                      // 개월수
 )
 
-type AgeLimitTypeRange struct {
+type AgeLimitRange struct {
 	alType AgeLimitType
 	from   int
 	to     int
@@ -98,11 +98,11 @@ func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) 
 	for i, lecture := range s.lectures {
 		alType, from, to := s.extractMonthsOrAgeRange(&lecture)
 
-		if alType == AgeLimitTypeMonths {
+		if alType == AgeLimitMonths {
 			if childrenMonths < from || childrenMonths > to {
 				s.lectures[i].ScrapeExcluded = true
 			}
-		} else if alType == AgeLimitTypeAge {
+		} else if alType == AgeLimitAge {
 			if childrenAge < from || childrenAge > to {
 				s.lectures[i].ScrapeExcluded = true
 			}
@@ -123,13 +123,13 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
 	for _, v := range []string{"키즈발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
 		if strings.Contains(lecture.Title, v) == true {
-			return AgeLimitTypeAge, 99, 99
+			return AgeLimitAge, 99, 99
 		}
 	}
 
 	alTypesMap := map[AgeLimitType]string{
-		AgeLimitTypeAge:    "세",
-		AgeLimitTypeMonths: "개월",
+		AgeLimitAge:    "세",
+		AgeLimitMonths: "개월",
 	}
 	for alType, alTypeString := range alTypesMap {
 		// n세이상, n세 이상, n세~성인, n세~ 성인
@@ -168,7 +168,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			helpers.CheckErr(err)
 
 			to := 13
-			if alType == AgeLimitTypeMonths {
+			if alType == AgeLimitMonths {
 				to *= 12
 			}
 
@@ -196,18 +196,18 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		to, err := strconv.Atoi(split[1])
 		helpers.CheckErr(err)
 
-		return AgeLimitTypeAge, from + 7, to + 7
+		return AgeLimitAge, from + 7, to + 7
 	}
 
 	// 강좌명에 특정 문자열이 포함되어 있는 경우, 연령제한타입 및 나이 범위를 임의적으로 반환한다.
-	specificTextMap := map[string]AgeLimitTypeRange{
+	specificTextMap := map[string]AgeLimitRange{
 		"(초등)": {
-			alType: AgeLimitTypeAge,
+			alType: AgeLimitAge,
 			from:   8,
 			to:     13,
 		},
 		"(초등반)": {
-			alType: AgeLimitTypeAge,
+			alType: AgeLimitAge,
 			from:   8,
 			to:     13,
 		},
@@ -218,7 +218,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		}
 	}
 
-	return AgeLimitTypeUnknwon, 0, math.MaxInt32
+	return AgeLimitUnknwon, 0, math.MaxInt32
 }
 
 func (s *scrape) ExportCSV(fileName string) {
