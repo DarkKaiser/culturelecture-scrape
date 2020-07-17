@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"helpers"
+	"github.com/darkkaiser/scrape-culturelecture/helpers"
+	"github.com/darkkaiser/scrape-culturelecture/scrape/lectures"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"regexp"
-	"scrape/lectures"
 	"strconv"
 )
 

@@ -1,4 +1,4 @@
-# scrape-culturelecture
+# culturelecture-scrape
 이마트/롯데마트/홈플러스 문화센터의 강좌를 수집하는 프로그램 
 
 ### 생성파일목록

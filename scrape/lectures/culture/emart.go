@@ -3,11 +3,11 @@ package culture
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"helpers"
+	"github.com/darkkaiser/scrape-culturelecture/helpers"
+	"github.com/darkkaiser/scrape-culturelecture/scrape/lectures"
 	"log"
 	"net/http"
 	"regexp"
-	"scrape/lectures"
 	"strings"
 	"sync"
 )
