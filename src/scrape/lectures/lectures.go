@@ -28,7 +28,8 @@ const (
 	ReceptionStatusVisitConsultation                                // 방문상담
 	ReceptionStatusVisitFirstComeFirstServed                        // 방문선착순
 	ReceptionStatusDayParticipation                                 // 당일참여
+	ReceptionStatusMax
 )
 
 // 지원가능한 접수상태 문자열
-var ReceptionStatusString = []string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "당일참여"}
+var ReceptionStatusString = [ReceptionStatusMax]string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "당일참여"}

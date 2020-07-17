@@ -153,17 +153,17 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 		}
 	}
 
-	var lectures []lectures.Lecture
+	var lectureList []lectures.Lecture
 	for i := 0; i < count; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
-			lectures = append(lectures, *lecture)
+			lectureList = append(lectureList, *lecture)
 		}
 	}
 
-	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", h.name, len(lectures))
+	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", h.name, len(lectureList))
 
-	mainC <- lectures
+	mainC <- lectureList
 }
 
 func (h *homeplus) newLectureSearchPostData(storeCode string, groupCode string, m int, n int) *homeplusLectureSearchPostData {
@@ -254,7 +254,7 @@ func (h *homeplus) extractCultureLecture(clPageUrl string, storeName string, lsr
 	}
 
 	// 접수상태
-	var status lectures.ReceptionStatus = lectures.ReceptionStatusUnknown
+	var status = lectures.ReceptionStatusUnknown
 	switch lsrd.LectureStatus {
 	case "1":
 		if lsrd.AdmitValid == "Y" {

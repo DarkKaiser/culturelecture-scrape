@@ -98,17 +98,17 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 
 	wait.Wait()
 
-	var lectures []lectures.Lecture
+	var lectureList []lectures.Lecture
 	for i := 0; i < count; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
-			lectures = append(lectures, *lecture)
+			lectureList = append(lectureList, *lecture)
 		}
 	}
 
-	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", e.name, len(lectures))
+	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", e.name, len(lectureList))
 
-	mainC <- lectures
+	mainC <- lectureList
 }
 
 func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
@@ -158,7 +158,7 @@ func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goq
 		}
 
 		// 접수상태
-		var status lectures.ReceptionStatus = lectures.ReceptionStatusUnknown
+		var status = lectures.ReceptionStatusUnknown
 		switch lectureCol5 {
 		case "접수가능":
 			status = lectures.ReceptionStatusPossible
