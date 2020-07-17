@@ -25,6 +25,12 @@ const (
 	AgeLimitTypeMonths                      // 개월수
 )
 
+type AgeLimitTypeRange struct {
+	alType AgeLimitType
+	from   int
+	to     int
+}
+
 type scrape struct {
 	lectures []lectures.Lecture
 }
@@ -194,13 +200,21 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	}
 
 	// 강좌명에 특정 문자열이 포함되어 있는 경우, 연령제한타입 및 나이 범위를 임의적으로 반환한다.
-	specificTextMap := map[string][3]int{
-		"(초등)":  {AgeLimitTypeAge, 8, 13},
-		"(초등반)": {AgeLimitTypeAge, 8, 13},
+	specificTextMap := map[string]AgeLimitTypeRange{
+		"(초등)": {
+			alType: AgeLimitTypeAge,
+			from:   8,
+			to:     13,
+		},
+		"(초등반)": {
+			alType: AgeLimitTypeAge,
+			from:   8,
+			to:     13,
+		},
 	}
 	for k, v := range specificTextMap {
 		if strings.Contains(lecture.Title, k) == true {
-			return AgeLimitType(v[0]), v[1], v[2]
+			return v.alType, v.from, v.to
 		}
 	}
 
