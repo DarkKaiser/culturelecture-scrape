@@ -21,13 +21,13 @@ type ReceptionStatus uint
 
 // 지원가능한 접수상태 값
 const (
-	ReceptionStatusUnknown                   = iota // 알수없음
-	ReceptionStatusPossible                         // 접수가능
-	ReceptionStatusClosed                           // 접수마감
-	ReceptionStatusStnadBy                          // 대기신청
-	ReceptionStatusVisitConsultation                // 방문상담
-	ReceptionStatusVisitFirstComeFirstServed        // 방문선착순
-	ReceptionStatusDayParticipation                 // 당일참여
+	ReceptionStatusUnknown                   ReceptionStatus = iota // 알수없음
+	ReceptionStatusPossible                                         // 접수가능
+	ReceptionStatusClosed                                           // 접수마감
+	ReceptionStatusStnadBy                                          // 대기신청
+	ReceptionStatusVisitConsultation                                // 방문상담
+	ReceptionStatusVisitFirstComeFirstServed                        // 방문선착순
+	ReceptionStatusDayParticipation                                 // 당일참여
 )
 
 // 지원가능한 접수상태 문자열

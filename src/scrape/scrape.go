@@ -20,9 +20,9 @@ type AgeLimitType int
 
 // 지원가능한 연령제한타입 값
 const (
-	AgeLimitTypeUnknwon = iota // 알수없음
-	AgeLimitTypeAge            // 나이
-	AgeLimitTypeMonths         // 개월수
+	AgeLimitTypeUnknwon AgeLimitType = iota // 알수없음
+	AgeLimitTypeAge                         // 나이
+	AgeLimitTypeMonths                      // 개월수
 )
 
 type scrape struct {
