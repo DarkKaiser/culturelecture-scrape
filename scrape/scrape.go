@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
-	"github.com/darkkaiser/scrape-culturelecture/helpers"
-	"github.com/darkkaiser/scrape-culturelecture/scrape/lectures"
-	"github.com/darkkaiser/scrape-culturelecture/scrape/lectures/culture"
+	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures/culture"
+	"github.com/darkkaiser/culturelecture-scrape/utils"
 	"log"
 	"math"
 	"os"
@@ -46,8 +46,8 @@ type Scraper interface {
 func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
 	log.Println("문화센터 강좌 수집을 시작합니다.")
 
-	searchYear = helpers.CleanString(searchYear)
-	searchSeasonCode = helpers.CleanString(searchSeasonCode)
+	searchYear = utils.CleanString(searchYear)
+	searchSeasonCode = utils.CleanString(searchSeasonCode)
 
 	if len(searchYear) == 0 || len(searchSeasonCode) == 0 {
 		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
@@ -84,9 +84,9 @@ func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) 
 	// 주말 및 공휴일이 아닌 평일 16시 이전의 강좌를 제외한다.
 	weekdays := []string{"월요일", "화요일", "수요일", "목요일", "금요일"}
 	for i, lecture := range s.lectures {
-		if helpers.Contains(weekdays, lecture.DayOfTheWeek) == true && helpers.Contains(holidays, lecture.StartDate) == false {
+		if utils.Contains(weekdays, lecture.DayOfTheWeek) == true && utils.Contains(holidays, lecture.StartDate) == false {
 			h24, err := strconv.Atoi(lecture.StartTime[:2])
-			helpers.CheckErr(err)
+			utils.CheckErr(err)
 
 			if h24 < 16 {
 				s.lectures[i].ScrapeExcluded = true
@@ -138,7 +138,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			fs := regexp.MustCompile("[0-9]{1,2}" + v).FindString(lecture.Title)
 			if len(fs) > 0 {
 				from, err := strconv.Atoi(strings.ReplaceAll(fs, v, ""))
-				helpers.CheckErr(err)
+				utils.CheckErr(err)
 
 				return alType, from, math.MaxInt32
 			}
@@ -151,9 +151,9 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
 			from, err := strconv.Atoi(split[0])
-			helpers.CheckErr(err)
+			utils.CheckErr(err)
 			to, err := strconv.Atoi(split[1])
-			helpers.CheckErr(err)
+			utils.CheckErr(err)
 
 			return alType, from, to
 		}
@@ -165,7 +165,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
 			from, err := strconv.Atoi(split[0])
-			helpers.CheckErr(err)
+			utils.CheckErr(err)
 
 			to := 13
 			if alType == AgeLimitMonths {
@@ -180,7 +180,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		fs = regexp.MustCompile(fmt.Sprintf("\\([0-9]{1,2}%s\\)", alTypeString)).FindString(lecture.Title)
 		if len(fs) > 0 {
 			no, err := strconv.Atoi(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "(", ""), ")", ""))
-			helpers.CheckErr(err)
+			utils.CheckErr(err)
 
 			return alType, no, no
 		}
@@ -192,9 +192,9 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "초", ""), "-", "~"), "~")
 
 		from, err := strconv.Atoi(split[0])
-		helpers.CheckErr(err)
+		utils.CheckErr(err)
 		to, err := strconv.Atoi(split[1])
-		helpers.CheckErr(err)
+		utils.CheckErr(err)
 
 		return AgeLimitAge, from + 7, to + 7
 	}
@@ -249,19 +249,19 @@ func (s *scrape) ExportCSV(fileName string) {
 	log.Println("수집된 문화센터 강좌 자료를 CSV 파일로 저장합니다.")
 
 	f, err := os.Create(fileName)
-	helpers.CheckErr(err)
+	utils.CheckErr(err)
 
 	defer f.Close()
 
 	// 파일 첫 부분에 UTF-8 BOM을 추가한다.
 	_, err = f.WriteString("\xEF\xBB\xBF")
-	helpers.CheckErr(err)
+	utils.CheckErr(err)
 
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
 	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지", "최근에 수집된 강좌와 비교"}
-	helpers.CheckErr(w.Write(headers))
+	utils.CheckErr(w.Write(headers))
 
 	count := 0
 	for _, lecture := range s.lectures {
@@ -284,7 +284,7 @@ func (s *scrape) ExportCSV(fileName string) {
 			lecture.DetailPageUrl,
 			s.checkChangesWithLatestScrapedCultureLectures(&lecture, latestScrapedCultureLectures),
 		}
-		helpers.CheckErr(w.Write(r))
+		utils.CheckErr(w.Write(r))
 		count++
 	}
 

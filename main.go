@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/darkkaiser/scrape-culturelecture/scrape"
+	"github.com/darkkaiser/culturelecture-scrape/scrape"
 	"time"
 )
 

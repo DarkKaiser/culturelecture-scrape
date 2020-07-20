@@ -3,8 +3,8 @@ package culture
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/scrape-culturelecture/helpers"
-	"github.com/darkkaiser/scrape-culturelecture/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/utils"
 	"log"
 	"net/http"
 	"regexp"
@@ -24,8 +24,8 @@ type emart struct {
 }
 
 func NewEmart(searchYear string, searchSeasonCode string) *emart {
-	searchYear = helpers.CleanString(searchYear)
-	searchSeasonCode = helpers.CleanString(searchSeasonCode)
+	searchYear = utils.CleanString(searchYear)
+	searchSeasonCode = utils.CleanString(searchSeasonCode)
 
 	if len(searchYear) == 0 || len(searchSeasonCode) == 0 {
 		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
@@ -79,13 +79,13 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 				clPageUrl := fmt.Sprintf("%s/lecture/lecture/list?year_code=%s&smst_code=%s&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=%s&group_code=%s&lect_name=", e.cultureBaseUrl, e.searchYearCode, e.searchSmstCode, storeCode, groupCode)
 
 				res, err := http.Get(clPageUrl)
-				helpers.CheckErr(err)
-				helpers.CheckStatusCode(res)
+				utils.CheckErr(err)
+				utils.CheckStatusCode(res)
 
 				defer res.Body.Close()
 
 				doc, err := goquery.NewDocumentFromReader(res.Body)
-				helpers.CheckErr(err)
+				utils.CheckErr(err)
 
 				clSelection := doc.Find("div.board_list > table > tbody > tr")
 				clSelection.Each(func(i int, s *goquery.Selection) {
@@ -112,7 +112,7 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 }
 
 func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
-	if helpers.CleanString(s.Text()) == "검색된 강좌가 없습니다." {
+	if utils.CleanString(s.Text()) == "검색된 강좌가 없습니다." {
 		c <- &lectures.Lecture{}
 	} else {
 		// 강좌의 컬럼 개수를 확인한다.
@@ -121,11 +121,11 @@ func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goq
 			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", e.name, ls.Length(), clPageUrl)
 		}
 
-		lectureCol1 := helpers.CleanString(ls.Eq(0 /* 강좌명 */).Text())
-		lectureCol2 := helpers.CleanString(ls.Eq(1 /* 강좌시작일(횟수) */).Text())
-		lectureCol3 := helpers.CleanString(ls.Eq(2 /* 강좌시간/요일 */).Text())
-		lectureCol4 := helpers.CleanString(ls.Eq(3 /* 수강료 */).Text())
-		lectureCol5 := helpers.CleanString(ls.Eq(4 /* 접수상태 */).Text())
+		lectureCol1 := utils.CleanString(ls.Eq(0 /* 강좌명 */).Text())
+		lectureCol2 := utils.CleanString(ls.Eq(1 /* 강좌시작일(횟수) */).Text())
+		lectureCol3 := utils.CleanString(ls.Eq(2 /* 강좌시간/요일 */).Text())
+		lectureCol4 := utils.CleanString(ls.Eq(3 /* 수강료 */).Text())
+		lectureCol5 := utils.CleanString(ls.Eq(4 /* 접수상태 */).Text())
 
 		// 개강일
 		startDate := regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}").FindString(lectureCol2)
@@ -188,7 +188,7 @@ func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goq
 			Price:          lectureCol4,
 			Count:          count,
 			Status:         status,
-			DetailPageUrl:  e.cultureBaseUrl + helpers.CleanString(detailPageUrl),
+			DetailPageUrl:  e.cultureBaseUrl + utils.CleanString(detailPageUrl),
 			ScrapeExcluded: false,
 		}
 	}

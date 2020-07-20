@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/scrape-culturelecture/helpers"
-	"github.com/darkkaiser/scrape-culturelecture/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/utils"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -24,8 +24,8 @@ type lottemart struct {
 }
 
 func NewLottemart(searchYear string, searchSeasonCode string) *lottemart {
-	searchYear = helpers.CleanString(searchYear)
-	searchSeasonCode = helpers.CleanString(searchSeasonCode)
+	searchYear = utils.CleanString(searchYear)
+	searchSeasonCode = utils.CleanString(searchSeasonCode)
 
 	if len(searchYear) == 0 || len(searchSeasonCode) == 0 {
 		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
@@ -75,7 +75,7 @@ func (l *lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 		}
 
 		totalPageCount, err := strconv.Atoi(piSplit[1])
-		helpers.CheckErr(err)
+		utils.CheckErr(err)
 
 		// 강좌 데이터를 수집한다.
 		for pageNo := 1; pageNo <= totalPageCount; pageNo++ {
@@ -116,17 +116,17 @@ func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", l.name, ls.Length(), clPageUrl)
 	}
 
-	lectureCol2 := helpers.CleanString(ls.Eq(1 /* 강사명 */).Text())
-	lectureCol3 := helpers.CleanString(ls.Eq(2 /* 요일/시간/개강일 */).Text())
-	lectureCol4 := helpers.CleanString(ls.Eq(3 /* 수강료 */).Text())
-	lectureCol5 := helpers.CleanString(ls.Eq(4 /* 접수상태/수강신청 */).Find("div > div > a.btn-status:last-child").Text())
+	lectureCol2 := utils.CleanString(ls.Eq(1 /* 강사명 */).Text())
+	lectureCol3 := utils.CleanString(ls.Eq(2 /* 요일/시간/개강일 */).Text())
+	lectureCol4 := utils.CleanString(ls.Eq(3 /* 수강료 */).Text())
+	lectureCol5 := utils.CleanString(ls.Eq(4 /* 접수상태/수강신청 */).Find("div > div > a.btn-status:last-child").Text())
 
 	// 강좌명
 	lts := ls.Eq(0 /* 강좌명 */).Find("div.info-txt > a")
 	if lts.Length() == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌명 <a> 태그를 찾을 수 없습니다, URL:%s)", l.name, clPageUrl)
 	}
-	title := helpers.CleanString(lts.Text())
+	title := utils.CleanString(lts.Text())
 
 	// 개강일
 	startDate := regexp.MustCompile("[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}$").FindString(lectureCol3)
@@ -208,18 +208,18 @@ func (l *lottemart) cultureLecturePageDocument(pageNo int, storeCode string) (st
 
 	reqBody := bytes.NewBufferString(fmt.Sprintf("currPageNo=%d&search_list_type=&search_str_cd=%s&search_order_gbn=&search_reg_status=&is_category_open=Y&from_fg=&cls_cd=&fam_no=&wish_typ=&search_term_cd=%s&search_day_fg=&search_cls_nm=&search_cat_cd=21,81,22,82,23,83,24,84,25,85,26,86,27,87,31,32,33,34,35,36,37,41,42,43,44,45,46,47,48&search_opt_cd=&search_tit_cd=&arr_cat_cd=21&arr_cat_cd=81&arr_cat_cd=22&arr_cat_cd=82&arr_cat_cd=23&arr_cat_cd=83&arr_cat_cd=24&arr_cat_cd=84&arr_cat_cd=25&arr_cat_cd=85&arr_cat_cd=26&arr_cat_cd=86&arr_cat_cd=27&arr_cat_cd=87&arr_cat_cd=31&arr_cat_cd=32&arr_cat_cd=33&arr_cat_cd=34&arr_cat_cd=35&arr_cat_cd=36&arr_cat_cd=37&arr_cat_cd=41&arr_cat_cd=42&arr_cat_cd=43&arr_cat_cd=44&arr_cat_cd=45&arr_cat_cd=46&arr_cat_cd=47&arr_cat_cd=48", pageNo, storeCode, l.searchTermCode))
 	res, err := http.Post(clPageUrl, "application/x-www-form-urlencoded; charset=UTF-8", reqBody)
-	helpers.CheckErr(err)
-	helpers.CheckStatusCode(res)
+	utils.CheckErr(err)
+	utils.CheckStatusCode(res)
 
 	defer res.Body.Close()
 
 	resBodyBytes, err := ioutil.ReadAll(res.Body)
-	helpers.CheckErr(err)
+	utils.CheckErr(err)
 
 	// 실제로 불러온 데이터는 '<table>' 태그가 포함되어 있지 않고 '<tr>', '<td>'만 있는 형태
 	// 이 형태에서 goquery.NewDocumentFromReader() 함수를 호출하면 '<tr>', '<td>' 태그가 모두 사라지므로 '<table>' 태그를 강제로 붙여준다.
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader("<table>" + string(resBodyBytes) + "</table>"))
-	helpers.CheckErr(err)
+	utils.CheckErr(err)
 
 	return clPageUrl, doc
 }
