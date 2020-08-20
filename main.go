@@ -14,10 +14,10 @@ import (
 var searchYearCode = "2020"
 
 // 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
-var searchSeasonCode = "2"
+var searchSeasonCode = "3"
 
 // 강좌를 수강하는 아이 개월수
-var childrenMonths = 51
+var childrenMonths = 53
 
 // 강좌를 수강하는 아이 나이
 var childrenAge = 5
