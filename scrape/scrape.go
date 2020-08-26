@@ -121,7 +121,7 @@ func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) 
 
 func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitType, int, int) {
 	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
-	for _, v := range []string{"키즈발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
+	for _, v := range []string{"키즈발레", "영어발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
 		if strings.Contains(lecture.Title, v) == true {
 			return AgeLimitAge, 99, 99
 		}
