@@ -14,10 +14,10 @@ import (
 var searchYearCode = "2020"
 
 // 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
-var searchSeasonCode = "3"
+var searchSeasonCode = "4"
 
 // 강좌를 수강하는 아이 개월수
-var childrenMonths = 53
+var childrenMonths = 56
 
 // 강좌를 수강하는 아이 나이
 var childrenAge = 5
@@ -44,7 +44,7 @@ var holidays = []string{
 func main() {
 	fmt.Println("########################################################")
 	fmt.Println("###                                                  ###")
-	fmt.Println("###           scrape-culturelecture 0.0.2            ###")
+	fmt.Println("###           scrape-culturelecture 0.0.3            ###")
 	fmt.Println("###                                                  ###")
 	fmt.Println("###                         developed by DarkKaiser  ###")
 	fmt.Println("###                                                  ###")

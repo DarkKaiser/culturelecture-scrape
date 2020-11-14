@@ -34,7 +34,7 @@ func NewLottemart(searchYear string, searchSeasonCode string) *lottemart {
 	return &lottemart{
 		name: "롯데마트",
 
-		cultureBaseUrl: "http://culture.lottemart.com",
+		cultureBaseUrl: "https://culture.lottemart.com",
 
 		searchTermCode: fmt.Sprintf("%s0%s", searchYear, searchSeasonCode),
 
@@ -116,20 +116,24 @@ func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", l.name, ls.Length(), clPageUrl)
 	}
 
-	lectureCol2 := utils.CleanString(ls.Eq(1 /* 강사명 */).Text())
-	lectureCol3 := utils.CleanString(ls.Eq(2 /* 요일/시간/개강일 */).Text())
-	lectureCol4 := utils.CleanString(ls.Eq(3 /* 수강료 */).Text())
-	lectureCol5 := utils.CleanString(ls.Eq(4 /* 접수상태/수강신청 */).Find("div > div > a.btn-status:last-child").Text())
+	// 강사명, 형식 : 김준희
+	lectureCol2 := utils.CleanString(ls.Eq(1).Text())
+	// 개강일/요일/시간, 형식 : 2020.12.05(토) 15:20~16:00
+	lectureCol3 := utils.CleanString(ls.Eq(2).Text())
+	// 수강료, 형식 : 12회 80,000원 60,000원
+	lectureCol4 := utils.CleanString(ls.Eq(3).Text())
+	// 접수상태/수강신청, 형식 : 바로신청
+	lectureCol5 := utils.CleanString(ls.Eq(4).Find("div > div > a.btn-status:last-child").Text())
 
 	// 강좌명
-	lts := ls.Eq(0 /* 강좌명 */).Find("div.info-txt > a")
+	lts := ls.Eq(0).Find("div.info-txt > a")
 	if lts.Length() == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌명 <a> 태그를 찾을 수 없습니다, URL:%s)", l.name, clPageUrl)
 	}
 	title := utils.CleanString(lts.Text())
 
 	// 개강일
-	startDate := regexp.MustCompile("[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}$").FindString(lectureCol3)
+	startDate := regexp.MustCompile("^[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}").FindString(lectureCol3)
 	if len(startDate) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", l.name, lectureCol3, clPageUrl)
 	}
@@ -137,7 +141,7 @@ func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 
 	// 시작시간, 종료시간
 	startTime := strings.TrimSpace(regexp.MustCompile(" [0-9]{2}:[0-9]{2}").FindString(lectureCol3))
-	endTime := strings.TrimSpace(regexp.MustCompile("[0-9]{2}:[0-9]{2} ").FindString(lectureCol3))
+	endTime := strings.TrimSpace(regexp.MustCompile("[0-9]{2}:[0-9]{2}$").FindString(lectureCol3))
 	if len(startDate) == 0 || len(endTime) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", l.name, lectureCol3, clPageUrl)
 	}
@@ -170,6 +174,8 @@ func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 		status = lectures.ReceptionStatusClosed
 	case "대기자 신청":
 		status = lectures.ReceptionStatusStnadBy
+	case "현장문의":
+		status = lectures.ReceptionStatusVisitInquiry
 	default:
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", l.name, lectureCol5, clPageUrl)
 	}

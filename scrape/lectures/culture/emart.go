@@ -121,11 +121,16 @@ func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goq
 			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", e.name, ls.Length(), clPageUrl)
 		}
 
-		lectureCol1 := utils.CleanString(ls.Eq(0 /* 강좌명 */).Text())
-		lectureCol2 := utils.CleanString(ls.Eq(1 /* 강좌시작일(횟수) */).Text())
-		lectureCol3 := utils.CleanString(ls.Eq(2 /* 강좌시간/요일 */).Text())
-		lectureCol4 := utils.CleanString(ls.Eq(3 /* 수강료 */).Text())
-		lectureCol5 := utils.CleanString(ls.Eq(4 /* 접수상태 */).Text())
+		// 강좌명, 형식 : [가든5점] (월)13:10 댄스스포츠 (자이브,룸바,왈츠,탱고) (성인/자녀동반불가)
+		lectureCol1 := utils.CleanString(ls.Eq(0).Text())
+		// 강좌시작일(횟수), 형식 : 2020-12-07 (12회)
+		lectureCol2 := utils.CleanString(ls.Eq(1).Text())
+		// 강좌시간/요일, 형식 : 13:10 ~ 14:20 / 월
+		lectureCol3 := utils.CleanString(ls.Eq(2).Text())
+		// 수강료, 형식 : 70,000원
+		lectureCol4 := utils.CleanString(ls.Eq(3).Text())
+		// 접수상태, 형식 : 접수가능
+		lectureCol5 := utils.CleanString(ls.Eq(4).Text())
 
 		// 개강일
 		startDate := regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}").FindString(lectureCol2)
