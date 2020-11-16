@@ -44,7 +44,7 @@ var holidays = []string{
 func main() {
 	fmt.Println("########################################################")
 	fmt.Println("###                                                  ###")
-	fmt.Println("###           scrape-culturelecture 0.0.3            ###")
+	fmt.Println("###           scrape-culturelecture 0.0.4            ###")
 	fmt.Println("###                                                  ###")
 	fmt.Println("###                         developed by DarkKaiser  ###")
 	fmt.Println("###                                                  ###")
