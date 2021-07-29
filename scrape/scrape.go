@@ -131,9 +131,9 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		AgeLimitMonths: "개월",
 	}
 	for alType, alTypeString := range alTypesMap {
-		// n세이상, n세 이상, n세~성인, n세~ 성인
-		// n개월이상, n개월 이상, n개월~성인, n개월~ 성인
-		for _, v := range []string{alTypeString + "이상", alTypeString + " 이상", alTypeString + "~성인", alTypeString + "~ 성인"} {
+		// n세이상, n세 이상, n세~성인, n세~ 성인, n세~누구나, n세~ 누구나
+		// n개월이상, n개월 이상, n개월~성인, n개월~ 성인, n개월~누구나, n개월~ 누구나
+		for _, v := range []string{alTypeString + "이상", alTypeString + " 이상", alTypeString + "~성인", alTypeString + "~ 성인", alTypeString + "~누구나", alTypeString + "~ 누구나"} {
 			fs := regexp.MustCompile("[0-9]{1,2}" + v).FindString(lecture.Title)
 			if len(fs) > 0 {
 				from, err := strconv.Atoi(strings.ReplaceAll(fs, v, ""))
@@ -215,6 +215,10 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		if strings.Contains(lecture.Title, k) == true {
 			return v.alType, v.from, v.to
 		}
+	}
+
+	if lecture.ScrapeExcluded == false {
+		log.Printf(" >> 수집된 강좌의 연령(나이, 개월수) 추출 실패, 필터링에서 제외됩니다.(%s : %s)", lecture.StoreName, lecture.Title)
 	}
 
 	return AgeLimitUnknwon, 0, math.MaxInt32
