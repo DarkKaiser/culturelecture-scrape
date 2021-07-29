@@ -22,6 +22,7 @@ type ReceptionStatus uint
 // 지원가능한 접수상태 값
 const (
 	ReceptionStatusUnknown                   ReceptionStatus = iota // 알수없음
+	ReceptionStatusPlanned                                          // 접수예정
 	ReceptionStatusPossible                                         // 접수가능
 	ReceptionStatusClosed                                           // 접수마감
 	ReceptionStatusStnadBy                                          // 대기신청

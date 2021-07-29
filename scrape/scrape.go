@@ -1,7 +1,6 @@
 package scrape
 
 import (
-	"bufio"
 	"encoding/csv"
 	"fmt"
 	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
@@ -49,7 +48,7 @@ func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
 	searchYear = utils.CleanString(searchYear)
 	searchSeasonCode = utils.CleanString(searchSeasonCode)
 
-	if len(searchYear) == 0 || len(searchSeasonCode) == 0 {
+	if searchYear == "" || searchSeasonCode == "" {
 		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
 	}
 
@@ -73,7 +72,7 @@ func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
 	log.Printf("문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", len(s.lectures))
 }
 
-func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) {
+func (s *scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holidays []string) {
 	// 접수상태가 접수마감인 강좌를 제외한다.
 	for i, lecture := range s.lectures {
 		if lecture.Status == lectures.ReceptionStatusClosed {
@@ -99,24 +98,24 @@ func (s *scrape) Filter(childrenMonths int, childrenAge int, holidays []string) 
 		alType, from, to := s.extractMonthsOrAgeRange(&lecture)
 
 		if alType == AgeLimitMonths {
-			if childrenMonths < from || childrenMonths > to {
+			if cultureLecturerMonths < from || cultureLecturerMonths > to {
 				s.lectures[i].ScrapeExcluded = true
 			}
 		} else if alType == AgeLimitAge {
-			if childrenAge < from || childrenAge > to {
+			if cultureLecturerAge < from || cultureLecturerAge > to {
 				s.lectures[i].ScrapeExcluded = true
 			}
 		}
 	}
 
-	count := 0
+	excludedLectureCount := 0
 	for _, lecture := range s.lectures {
 		if lecture.ScrapeExcluded == true {
-			count++
+			excludedLectureCount++
 		}
 	}
 
-	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(s.lectures), count)
+	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(s.lectures), excludedLectureCount)
 }
 
 func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitType, int, int) {
@@ -223,27 +222,6 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 
 func (s *scrape) ExportCSV(fileName string) {
 	/**
-	 * 최근에 수집된 문화센터 강좌 자료 로드
-	 */
-	const latestScrapedCultureLecturesFileName = "culturelecture-scrape-latest.csv"
-
-	var latestScrapedCultureLectures [][]string
-	f, _ := os.Open(latestScrapedCultureLecturesFileName)
-	if f == nil {
-		log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)가 존재하지 않습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedCultureLecturesFileName))
-	} else {
-		defer f.Close()
-
-		r := csv.NewReader(bufio.NewReader(f))
-		latestScrapedCultureLectures, _ = r.ReadAll()
-		if latestScrapedCultureLectures == nil {
-			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드할 수 없습니다. 새로 수집된 강좌는 이전에 수집된 강좌와의 변경사항을 추적할 수 없습니다.", latestScrapedCultureLecturesFileName))
-		} else {
-			log.Println(fmt.Sprintf("최근에 수집된 문화센터 강좌 자료(%s)를 로드하였습니다.", latestScrapedCultureLecturesFileName))
-		}
-	}
-
-	/**
 	 * CSV 파일저장
 	 */
 	log.Println("수집된 문화센터 강좌 자료를 CSV 파일로 저장합니다.")
@@ -260,7 +238,7 @@ func (s *scrape) ExportCSV(fileName string) {
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
-	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지", "최근에 수집된 강좌와 비교"}
+	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지"}
 	utils.CheckErr(w.Write(headers))
 
 	count := 0
@@ -282,42 +260,10 @@ func (s *scrape) ExportCSV(fileName string) {
 			lecture.Count,
 			lectures.ReceptionStatusString[lecture.Status],
 			lecture.DetailPageUrl,
-			s.checkChangesWithLatestScrapedCultureLectures(&lecture, latestScrapedCultureLectures),
 		}
 		utils.CheckErr(w.Write(r))
 		count++
 	}
 
 	log.Printf("수집된 문화센터 강좌 자료(%d건)를 CSV 파일(%s)로 저장하였습니다.", count, fileName)
-}
-
-func (s *scrape) checkChangesWithLatestScrapedCultureLectures(lecture *lectures.Lecture, latestScrapedCultureLectures [][]string) string {
-	if latestScrapedCultureLectures == nil || (len(latestScrapedCultureLectures) == 1 && len(latestScrapedCultureLectures[0]) == 1) {
-		return "-"
-	}
-
-	for _, latestScrapedCultureLecture := range latestScrapedCultureLectures {
-		if len(latestScrapedCultureLecture) != 13 {
-			continue
-		}
-
-		if latestScrapedCultureLecture[0] == lecture.StoreName &&
-			latestScrapedCultureLecture[1] == lecture.Group &&
-			latestScrapedCultureLecture[2] == lecture.Title &&
-			latestScrapedCultureLecture[3] == lecture.Teacher &&
-			latestScrapedCultureLecture[4] == lecture.StartDate &&
-			latestScrapedCultureLecture[5] == lecture.StartTime &&
-			latestScrapedCultureLecture[6] == lecture.EndTime &&
-			latestScrapedCultureLecture[8] == lecture.Price &&
-			latestScrapedCultureLecture[9] == lecture.Count &&
-			latestScrapedCultureLecture[11] == lecture.DetailPageUrl {
-			return "변경사항 없음"
-		}
-
-		if latestScrapedCultureLecture[11] == lecture.DetailPageUrl {
-			return "변경됨"
-		}
-	}
-
-	return "신규"
 }
