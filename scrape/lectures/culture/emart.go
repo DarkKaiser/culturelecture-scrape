@@ -19,15 +19,15 @@ type emart struct {
 	searchYearCode string // 검색년도
 	searchSmstCode string // 검색시즌 코드(S1 ~ S4)
 
-	storeCodeMap map[string]string // 점포
-	groupCodeMap map[string]string // 강좌군
+	storeCodeMap        map[string]string // 점포
+	lectureGroupCodeMap map[string]string // 강좌군
 }
 
 func NewEmart(searchYear string, searchSeasonCode string) *emart {
 	searchYear = utils.CleanString(searchYear)
 	searchSeasonCode = utils.CleanString(searchSeasonCode)
 
-	if len(searchYear) == 0 || len(searchSeasonCode) == 0 {
+	if searchYear == "" || searchSeasonCode == "" {
 		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
 	}
 
@@ -45,7 +45,7 @@ func NewEmart(searchYear string, searchSeasonCode string) *emart {
 			"900": "순천점",
 		},
 
-		groupCodeMap: map[string]string{
+		lectureGroupCodeMap: map[string]string{
 			"10": "엄마랑 아기랑(0~4세)인지/표현",
 			"11": "엄마랑 아기랑(0~4세)예능/신체",
 			"12": "엄마랑 아기랑(0~4세)주말프로그램",
@@ -71,12 +71,12 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 
 	count := 0
 	for storeCode, storeName := range e.storeCodeMap {
-		for groupCode := range e.groupCodeMap {
+		for lectureGroupCode, lectureGroupName := range e.lectureGroupCodeMap {
 			wait.Add(1)
-			go func(storeCode string, storeName string, groupCode string) {
+			go func(storeCode string, storeName string, lectureGroupCode string, lectureGroupName string) {
 				defer wait.Done()
 
-				clPageUrl := fmt.Sprintf("%s/lecture/lecture/list?year_code=%s&smst_code=%s&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=%s&group_code=%s&lect_name=", e.cultureBaseUrl, e.searchYearCode, e.searchSmstCode, storeCode, groupCode)
+				clPageUrl := fmt.Sprintf("%s/lecture/lecture/list?year_code=%s&smst_code=%s&order_by=0&flag=&default_display_cnt=999&page_index=1&store_code=%s&group_code=%s&lect_name=", e.cultureBaseUrl, e.searchYearCode, e.searchSmstCode, storeCode, lectureGroupCode)
 
 				res, err := http.Get(clPageUrl)
 				utils.CheckErr(err)
@@ -87,12 +87,27 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 				doc, err := goquery.NewDocumentFromReader(res.Body)
 				utils.CheckErr(err)
 
+				// 점포가 유효한지 확인한다.
+				vSelection := doc.Find(fmt.Sprintf("#d-storelist a[data-code='%s']", storeCode))
+				if vSelection.Length() != 1 || utils.CleanString(vSelection.Text()) != storeName {
+					log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(CSS셀렉터를 확인하세요, 점포코드 불일치:%s, URL:%s)", e.name, storeCode, clPageUrl)
+				}
+				// 강좌군이 유효한지 확인한다.
+				vSelection = doc.Find(fmt.Sprintf("#d-lectlist > ul.lecture_list > li input[name='group_code'][value='%s']", lectureGroupCode))
+				if vSelection.Length() != 1 || utils.CleanString(vSelection.Parent().Text()) != lectureGroupName {
+					log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(CSS셀렉터를 확인하세요, 강좌군코드 불일치:%s, URL:%s)", e.name, lectureGroupCode, clPageUrl)
+				}
+
 				clSelection := doc.Find("div.board_list > table > tbody > tr")
+				if clSelection.Length() <= 0 {
+					log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(CSS셀렉터를 확인하세요, URL:%s)", e.name, clPageUrl)
+				}
+
 				clSelection.Each(func(i int, s *goquery.Selection) {
 					count += 1
 					go e.extractCultureLecture(clPageUrl, storeName, s, c)
 				})
-			}(storeCode, storeName, groupCode)
+			}(storeCode, storeName, lectureGroupCode, lectureGroupName)
 		}
 	}
 
@@ -165,6 +180,8 @@ func (e *emart) extractCultureLecture(clPageUrl string, storeName string, s *goq
 		// 접수상태
 		var status = lectures.ReceptionStatusUnknown
 		switch lectureCol5 {
+		case "접수 예정":
+			status = lectures.ReceptionStatusPlanned
 		case "접수가능":
 			status = lectures.ReceptionStatusPossible
 		case "접수 마감":

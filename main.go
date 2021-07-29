@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+// 문화센터 강좌 수강자
+var cultureLecturer = struct {
+	YearOfBirth  int
+	MonthOfBirth int
+	DayOfBirth   int
+}{2016, 3, 18}
+
 /********************************************************************************/
 /* 강좌 수집 작업시에 변경되는 값 BEGIN                                              */
 /****************************************************************************** */
@@ -15,12 +22,6 @@ var searchYearCode = "2021"
 
 // 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
 var searchSeasonCode = "2"
-
-// 강좌를 수강하는 아이 개월수
-var childrenMonths = 62
-
-// 강좌를 수강하는 아이 나이
-var childrenAge = 6
 
 // 공휴일(2021년도)
 var holidays = []string{
@@ -42,19 +43,35 @@ var holidays = []string{
 /****************************************************************************** */
 
 func main() {
+	now := time.Now()
+
+	// 강좌 수강자의 나이 및 개월수를 계산한다.
+	cultureLecturerAge := now.Year() - cultureLecturer.YearOfBirth + 1
+
+	cultureLecturerMonths := 0
+	cultureLecturerBirthday := time.Date(cultureLecturer.YearOfBirth, time.Month(cultureLecturer.MonthOfBirth), cultureLecturer.DayOfBirth, 0, 0, 0, 0, time.Local)
+	for {
+		cultureLecturerBirthday = cultureLecturerBirthday.AddDate(0, 1, 0)
+		if cultureLecturerBirthday.Unix() > now.Unix() {
+			break
+		}
+
+		cultureLecturerMonths += 1
+	}
+
 	fmt.Println("########################################################")
 	fmt.Println("###                                                  ###")
-	fmt.Println("###           scrape-culturelecture 0.0.4            ###")
+	fmt.Println("###           culturelecture-scrape 0.0.6            ###")
 	fmt.Println("###                                                  ###")
 	fmt.Println("###                         developed by DarkKaiser  ###")
 	fmt.Println("###                                                  ###")
 	fmt.Println("########################################################")
 	fmt.Println("")
+	fmt.Println(fmt.Sprintf("문화센터 강좌 수강자 정보는 %d세(%d개월) 아이입니다.\n", cultureLecturerAge, cultureLecturerMonths))
 
 	s := scrape.New()
 	s.Scrape(searchYearCode, searchSeasonCode)
-	s.Filter(childrenMonths, childrenAge, holidays)
+	s.Filter(cultureLecturerMonths, cultureLecturerAge, holidays)
 
-	now := time.Now()
 	s.ExportCSV(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
 }
