@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 type lottemart struct {
@@ -96,7 +97,7 @@ func (l *lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 
 	c := make(chan *lectures.Lecture, 100)
 
-	count := 0
+	var count int64 = 0
 	for storeCode, storeName := range l.storeCodeMap {
 		// 점포가 유효한지 확인한다.
 		if l.validCultureLectureStore(storeCode, storeName) == false {
@@ -137,7 +138,7 @@ func (l *lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 
 				clSelection := doc.Find("tr")
 				clSelection.Each(func(i int, s *goquery.Selection) {
-					count += 1
+					atomic.AddInt64(&count, 1)
 					go l.extractCultureLecture(clPageUrl, storeCode, storeName, s, c)
 				})
 			}(storeCode, storeName, pageNo)
@@ -147,7 +148,7 @@ func (l *lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	wait.Wait()
 
 	var lectureList []lectures.Lecture
-	for i := 0; i < count; i++ {
+	for i := int64(0); i < count; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
 			lectureList = append(lectureList, *lecture)
