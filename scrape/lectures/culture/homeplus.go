@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 type homeplus struct {
@@ -140,9 +141,9 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 
 	clPageUrl := h.cultureBaseUrl + "/Lecture/GetSearchLecture"
 
-	// 각 점포 및 강좌군의 검색까지 병렬화(goroutine)하면, 검색 결과의 데이터 갯수가 매번 다르게 반환되므로 병렬화를 하지 않음!!!
-	// 문제에 대한 원인은 알 수 없음
-	totalExtractionLectureCount := 0
+	// 각 점포 및 강좌군의 검색까지 병렬화(goroutine)하면, 검색 결과의 데이터 갯수가 매번 다르게 반환되어 오류가 발생하므로 병렬화를 하지 않음!!!
+	// 홈플러스 서버에 병렬화하여 동시에 요청을 많이 보낸 경우, 제대로 응답이 들어오는 경우도 있지만 그렇지 못하는 경우가 발생함!!!
+	var totalExtractionLectureCount int64 = 0
 	for storeCode, storeName := range h.storeCodeMap {
 		for lectureGroupCode, lectureGroupName := range h.lectureGroupCodeMap {
 			idx := 1
@@ -168,7 +169,7 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 
 				for i := range lectureSearchResult.Table {
 					extractionLectureCount += 1
-					totalExtractionLectureCount += 1
+					atomic.AddInt64(&totalExtractionLectureCount, 1)
 					go h.extractCultureLecture(clPageUrl, storeName, &lectureSearchResult.Table[i], c)
 				}
 
@@ -193,7 +194,7 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	}
 
 	var lectureList []lectures.Lecture
-	for i := 0; i < totalExtractionLectureCount; i++ {
+	for i := int64(0); i < totalExtractionLectureCount; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
 			lectureList = append(lectureList, *lecture)

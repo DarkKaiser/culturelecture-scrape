@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 type emart struct {
@@ -69,7 +70,7 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 
 	c := make(chan *lectures.Lecture, 100)
 
-	count := 0
+	var count int64 = 0
 	for storeCode, storeName := range e.storeCodeMap {
 		for lectureGroupCode, lectureGroupName := range e.lectureGroupCodeMap {
 			wait.Add(1)
@@ -104,7 +105,7 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 				}
 
 				clSelection.Each(func(i int, s *goquery.Selection) {
-					count += 1
+					atomic.AddInt64(&count, 1)
 					go e.extractCultureLecture(clPageUrl, storeName, s, c)
 				})
 			}(storeCode, storeName, lectureGroupCode, lectureGroupName)
@@ -114,7 +115,7 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	wait.Wait()
 
 	var lectureList []lectures.Lecture
-	for i := 0; i < count; i++ {
+	for i := int64(0); i < count; i++ {
 		lecture := <-c
 		if len(lecture.Title) > 0 {
 			lectureList = append(lectureList, *lecture)
