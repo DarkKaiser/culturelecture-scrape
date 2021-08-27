@@ -158,10 +158,10 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 				utils.CheckErr(err)
 				utils.CheckStatusCode(res)
 
-				defer res.Body.Close()
-
 				resBodyBytes, err := ioutil.ReadAll(res.Body)
 				utils.CheckErr(err)
+
+				utils.CheckErr(res.Body.Close())
 
 				var lectureSearchResult homeplusLectureSearchResult
 				err = json.Unmarshal(resBodyBytes, &lectureSearchResult)
@@ -327,6 +327,7 @@ func (h *homeplus) validCultureLectureStore() bool {
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
 
+	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
 	resBodyBytes, err := ioutil.ReadAll(res.Body)
@@ -362,6 +363,7 @@ func (h *homeplus) validCultureLectureGroup() bool {
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
 
+	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)

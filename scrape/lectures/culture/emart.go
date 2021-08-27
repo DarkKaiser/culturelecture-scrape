@@ -83,6 +83,7 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 				utils.CheckErr(err)
 				utils.CheckStatusCode(res)
 
+				//goland:noinspection GoUnhandledErrorResult
 				defer res.Body.Close()
 
 				doc, err := goquery.NewDocumentFromReader(res.Body)

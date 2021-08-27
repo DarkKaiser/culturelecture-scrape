@@ -266,7 +266,7 @@ func (l *lottemart) cultureLecturePageDocument(pageNo int, storeCode string) (st
 	paramArrCatCd := ""
 	paramSearchCatCd := ""
 	for _, v := range l.lectureGroupCodeMap {
-		for lectureGroupCode, _ := range v {
+		for lectureGroupCode := range v {
 			if paramSearchCatCd != "" {
 				paramSearchCatCd += ","
 			}
@@ -284,6 +284,7 @@ func (l *lottemart) cultureLecturePageDocument(pageNo int, storeCode string) (st
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
 
+	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
 	resBodyBytes, err := ioutil.ReadAll(res.Body)
@@ -302,6 +303,7 @@ func (l *lottemart) validCultureLectureStore(storeCode, storeName string) bool {
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
 
+	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
@@ -320,6 +322,7 @@ func (l *lottemart) validCultureLectureGroup() bool {
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
 
+	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
