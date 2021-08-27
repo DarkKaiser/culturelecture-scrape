@@ -233,6 +233,7 @@ func (s *scrape) ExportCSV(fileName string) {
 	f, err := os.Create(fileName)
 	utils.CheckErr(err)
 
+	//goland:noinspection GoUnhandledErrorResult
 	defer f.Close()
 
 	// 파일 첫 부분에 UTF-8 BOM을 추가한다.
