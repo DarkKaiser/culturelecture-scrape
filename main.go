@@ -21,7 +21,7 @@ var cultureLecturer = struct {
 var searchYearCode = "2021"
 
 // 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
-var searchSeasonCode = "2"
+var searchSeasonCode = "3"
 
 // 공휴일(2021년도)
 var holidays = []string{
