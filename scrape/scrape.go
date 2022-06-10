@@ -55,7 +55,7 @@ func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
 	scrapers := []Scraper{
 		culture.NewHomeplus(),
 		culture.NewLottemart(searchYear, searchSeasonCode),
-		culture.NewEmart(searchYear, searchSeasonCode),
+		culture.NewEmart(searchYear),
 	}
 
 	c := make(chan []lectures.Lecture, len(scrapers))
