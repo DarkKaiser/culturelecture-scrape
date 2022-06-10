@@ -227,6 +227,8 @@ func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 		status = lectures.ReceptionStatusStnadBy
 	case "현장문의":
 		status = lectures.ReceptionStatusVisitInquiry
+	case "현장접수":
+		status = lectures.ReceptionStatusVisitInquiry
 	default:
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", l.name, lectureCol5, clPageUrl)
 	}
