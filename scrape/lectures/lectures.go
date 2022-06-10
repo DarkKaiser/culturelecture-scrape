@@ -34,4 +34,4 @@ const (
 )
 
 // 지원가능한 접수상태 문자열
-var ReceptionStatusString = [ReceptionStatusMax]string{"알수없음", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "현장문의", "당일참여"}
+var ReceptionStatusString = [ReceptionStatusMax]string{"알수없음", "접수예정", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "현장문의", "당일참여"}
