@@ -42,14 +42,29 @@ type Scraper interface {
 	ScrapeCultureLectures(mainC chan<- []lectures.Lecture)
 }
 
-func (s *scrape) Scrape(searchYear string, searchSeasonCode string) {
+func (s *scrape) Scrape(searchYear string, searchSeason string) {
 	log.Println("문화센터 강좌 수집을 시작합니다.")
 
 	searchYear = utils.CleanString(searchYear)
-	searchSeasonCode = utils.CleanString(searchSeasonCode)
+	searchSeason = utils.CleanString(searchSeason)
 
-	if searchYear == "" || searchSeasonCode == "" {
-		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
+	if searchYear == "" || searchSeason == "" {
+		log.Fatalf("검색년도 및 검색시즌은 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌:%s)", searchYear, searchSeason)
+	}
+
+	// 검색시즌코드(봄:1, 여름:2, 가을:3, 겨울:4)
+	var searchSeasonCode string
+	switch searchSeason {
+	case "봄":
+		searchSeasonCode = "1"
+	case "여름":
+		searchSeasonCode = "2"
+	case "가을":
+		searchSeasonCode = "3"
+	case "겨울":
+		searchSeasonCode = "4"
+	default:
+		log.Fatalf("입력된 검색시즌이 올바르지 않습니다(검색시즌:%s)", searchSeason)
 	}
 
 	scrapers := []Scraper{
@@ -93,6 +108,16 @@ func (s *scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holid
 		}
 	}
 
+	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
+	for i, lecture := range s.lectures {
+		for _, v := range []string{"키즈발레", "영어발레", "엔젤발레", "엔젤 발레", "체형교정발레", "체형교정 발레", "YSM발레", "YSM 발레", "쁘띠발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
+			if strings.Contains(lecture.Title, v) == true {
+				s.lectures[i].ScrapeExcluded = true
+				break
+			}
+		}
+	}
+
 	// 개월수 및 나이에 포함되지 않는 강좌는 제외한다.
 	for i, lecture := range s.lectures {
 		alType, from, to := s.extractMonthsOrAgeRange(&lecture)
@@ -119,13 +144,6 @@ func (s *scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holid
 }
 
 func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitType, int, int) {
-	// 강좌명에 특정 문자열이 포함되어 있는 경우 수집에서 제외한다.
-	for _, v := range []string{"키즈발레", "영어발레", "발레리나", "앨리스 스토리텔링 발레", "트윈클 동화발레", "밸리댄스", "[광주국제영어마을"} {
-		if strings.Contains(lecture.Title, v) == true {
-			return AgeLimitAge, 99, 99
-		}
-	}
-
 	alTypesMap := map[AgeLimitType]string{
 		AgeLimitAge:    "세",
 		AgeLimitMonths: "개월",
@@ -174,6 +192,26 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			return alType, from, to
 		}
 
+		// n세~초n, n세-초n
+		// n개월~초n, n개월-초n
+		fs = regexp.MustCompile(fmt.Sprintf("[0-9]{1,2}%s[~-]{1}초[1-6]{1}", alTypeString)).FindString(lecture.Title)
+		if len(fs) > 0 {
+			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
+
+			from, err := strconv.Atoi(split[0])
+			utils.CheckErr(err)
+
+			to, err := strconv.Atoi(strings.ReplaceAll(split[1], "초", ""))
+			utils.CheckErr(err)
+
+			to += 7
+			if alType == AgeLimitMonths {
+				to *= 12
+			}
+
+			return alType, from, to
+		}
+
 		// (n세)
 		// (n개월)
 		fs = regexp.MustCompile(fmt.Sprintf("\\([0-9]{1,2}%s\\)", alTypeString)).FindString(lecture.Title)
@@ -210,6 +248,16 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			from:   8,
 			to:     13,
 		},
+		"(모든 연령)": {
+			alType: AgeLimitAge,
+			from:   0,
+			to:     math.MaxInt32,
+		},
+		"(초등~성인)": {
+			alType: AgeLimitAge,
+			from:   8,
+			to:     math.MaxInt32,
+		},
 	}
 	for k, v := range specificTextMap {
 		if strings.Contains(lecture.Title, k) == true {
@@ -218,7 +266,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	}
 
 	if lecture.ScrapeExcluded == false {
-		log.Printf(" >> 수집된 강좌의 연령(나이, 개월수) 추출 실패, 필터링에서 제외됩니다.(%s : %s)", lecture.StoreName, lecture.Title)
+		log.Printf(" >> 수집된 강좌의 연령(나이, 개월수) 추출 실패, 필터링 대상에서 제외됩니다.(%s : %s)", lecture.StoreName, lecture.Title)
 	}
 
 	return AgeLimitUnknwon, 0, math.MaxInt32

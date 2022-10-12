@@ -18,10 +18,10 @@ var cultureLecturer = struct {
 /****************************************************************************** */
 
 // 검색년도
-var searchYearCode = "2022"
+var searchYear = "2022"
 
-// 검색시즌(봄:1, 여름:2, 가을:3, 겨울:4)
-var searchSeasonCode = "2"
+// 검색시즌(봄, 여름, 가을, 겨울)
+var searchSeason = "가을"
 
 // 공휴일
 var holidays = []string{
@@ -67,10 +67,11 @@ func main() {
 	fmt.Println("###                                                  ###")
 	fmt.Println("########################################################")
 	fmt.Println("")
-	fmt.Println(fmt.Sprintf("문화센터 강좌 수강자 정보는 %d세(%d개월) 아이입니다.\n", cultureLecturerAge, cultureLecturerMonths))
+	fmt.Println(fmt.Sprintf(" ▶ %s년 %s 문화센터 강좌를 수집합니다.", searchYear, searchSeason))
+	fmt.Println(fmt.Sprintf(" ▶ 문화센터 강좌 수강자는 %d세(%d개월) 아이입니다.\n", cultureLecturerAge, cultureLecturerMonths))
 
 	s := scrape.New()
-	s.Scrape(searchYearCode, searchSeasonCode)
+	s.Scrape(searchYear, searchSeason)
 	s.Filter(cultureLecturerMonths, cultureLecturerAge, holidays)
 
 	s.ExportCSV(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
