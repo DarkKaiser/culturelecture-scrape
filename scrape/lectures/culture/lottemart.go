@@ -227,6 +227,8 @@ func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 		status = lectures.ReceptionStatusStnadBy
 	case "현장문의":
 		status = lectures.ReceptionStatusVisitInquiry
+	case "전화문의":
+		status = lectures.ReceptionStatusTellInquiry
 	case "현장접수":
 		status = lectures.ReceptionStatusVisitInquiry
 	default:
