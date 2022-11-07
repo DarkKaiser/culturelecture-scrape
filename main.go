@@ -21,7 +21,7 @@ var cultureLecturer = struct {
 var searchYear = "2022"
 
 // 검색시즌(봄, 여름, 가을, 겨울)
-var searchSeason = "가을"
+var searchSeason = "겨울"
 
 // 공휴일
 var holidays = []string{
