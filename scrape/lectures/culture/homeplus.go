@@ -316,7 +316,7 @@ func (h *homeplus) extractCultureLecture(clPageUrl string, storeName string, lsr
 		Price:          price + "원",
 		Count:          count + "회",
 		Status:         status,
-		DetailPageUrl:  fmt.Sprintf("%s/Lecture/Detail?LectureMasterID==%s", h.cultureBaseUrl, lsrd.LectureMasterID),
+		DetailPageUrl:  fmt.Sprintf("%s/Lecture/Detail?LectureMasterID=%s", h.cultureBaseUrl, lsrd.LectureMasterID),
 		ScrapeExcluded: false,
 	}
 }
