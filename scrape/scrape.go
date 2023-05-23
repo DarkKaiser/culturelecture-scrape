@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // 연령제한타입
@@ -236,6 +237,21 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		return AgeLimitAge, from + 7, to + 7
 	}
 
+	now := time.Now()
+
+	// nn~nn년생
+	fs = regexp.MustCompile("[0-9]{2}[~][0-9]{2}년생").FindString(lecture.Title)
+	if len(fs) > 0 {
+		split := strings.Split(strings.ReplaceAll(fs, "년생", ""), "~")
+
+		from, err := strconv.Atoi(split[0])
+		utils.CheckErr(err)
+		to, err := strconv.Atoi(split[1])
+		utils.CheckErr(err)
+
+		return AgeLimitAge, now.Year() - (2000 + from) + 1, now.Year() - (2000 + to) + 1
+	}
+
 	// 강좌명에 특정 문자열이 포함되어 있는 경우, 연령제한타입 및 나이 범위를 임의적으로 반환한다.
 	specificTextMap := map[string]AgeLimitRange{
 		"(초등)": {
@@ -247,6 +263,11 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			alType: AgeLimitAge,
 			from:   8,
 			to:     13,
+		},
+		"(모든연령": {
+			alType: AgeLimitAge,
+			from:   0,
+			to:     math.MaxInt32,
 		},
 		"(모든 연령)": {
 			alType: AgeLimitAge,

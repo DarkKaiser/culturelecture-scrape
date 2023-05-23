@@ -18,10 +18,10 @@ var cultureLecturer = struct {
 /****************************************************************************** */
 
 // 검색년도
-var searchYear = "2022"
+var searchYear = "2023"
 
 // 검색시즌(봄, 여름, 가을, 겨울)
-var searchSeason = "겨울"
+var searchSeason = "여름"
 
 // 공휴일
 var holidays = []string{
