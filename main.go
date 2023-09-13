@@ -14,7 +14,7 @@ var cultureLecturer = struct {
 }{2016, 3, 18}
 
 /********************************************************************************/
-/* 강좌 수집 작업시에 변경되는 값 BEGIN                                              */
+/* 강좌 수집 작업시에 변경되는 값 BEGIN                                             */
 /****************************************************************************** */
 
 // 검색년도
@@ -61,7 +61,7 @@ func main() {
 
 	fmt.Println("########################################################")
 	fmt.Println("###                                                  ###")
-	fmt.Println("###           culturelecture-scrape 0.0.6            ###")
+	fmt.Println("###           culturelecture-scrape 0.0.1            ###")
 	fmt.Println("###                                                  ###")
 	fmt.Println("###                         developed by DarkKaiser  ###")
 	fmt.Println("###                                                  ###")
