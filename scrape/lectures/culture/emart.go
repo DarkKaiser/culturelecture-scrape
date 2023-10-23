@@ -309,6 +309,8 @@ func (e *emart) extractCultureLecture(storeName string, lsrld emartLectureSearch
 		status = lectures.ReceptionStatusPossible
 	case "접수마감", "정원마감":
 		status = lectures.ReceptionStatusClosed
+	case "접수대기":
+		status = lectures.ReceptionStatusStnadBy
 	default:
 		log.Fatalf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(%s)", e.name, storeName, lsrld.ClassStatus)
 	}
