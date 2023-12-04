@@ -289,6 +289,8 @@ func (h *homeplus) extractCultureLecture(clPageUrl string, storeCode string, sto
 			status = lectures.ReceptionStatusClosed
 		} else if classCartStatus == "방문" {
 			status = lectures.ReceptionStatusVisitConsultation
+		} else if classCartStatus == "문의" {
+			status = lectures.ReceptionStatusVisitInquiry
 		} else {
 			log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", h.name, classCartImgUrl, clPageUrl)
 		}
