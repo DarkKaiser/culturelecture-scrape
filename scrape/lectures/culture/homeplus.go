@@ -75,7 +75,6 @@ func NewHomeplus() *homeplus {
 
 		storeCodeMap: map[string]string{
 			"0035": "광양점",
-			"1009": "순천풍덕점",
 			"0030": "순천점",
 		},
 
