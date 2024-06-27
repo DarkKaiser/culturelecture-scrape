@@ -7,7 +7,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
 	"github.com/darkkaiser/culturelecture-scrape/utils"
-	"io/ioutil"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -20,7 +20,7 @@ import (
 
 const homeplusLectureSearchPageSize = 20
 
-type homeplus struct {
+type Homeplus struct {
 	name           string
 	cultureBaseUrl string
 
@@ -67,8 +67,8 @@ type homeplusStoreSearchResult struct {
 	} `json:"Data"`
 }
 
-func NewHomeplus() *homeplus {
-	return &homeplus{
+func NewHomeplus() *Homeplus {
+	return &Homeplus{
 		name: "홈플러스",
 
 		cultureBaseUrl: "https://mschool.homeplus.co.kr",
@@ -85,7 +85,7 @@ func NewHomeplus() *homeplus {
 	}
 }
 
-func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
+func (h *Homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", h.name)
 
 	// 점포가 유효한지 확인한다.
@@ -126,7 +126,7 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 				clSelection := doc.Find("li > div.result_info_wrap")
 				clSelection.Each(func(i int, s *goquery.Selection) {
 					atomic.AddInt64(&totalExtractionLectureCount, 1)
-					go h.extractCultureLecture(clPageUrl, storeCode, storeName, s, c)
+					go h.extractCultureLecture(clPageUrl, storeName, s, c)
 				})
 			}(storeCode, storeName, pageNo)
 		}
@@ -147,7 +147,7 @@ func (h *homeplus) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	mainC <- lectureList
 }
 
-func (h *homeplus) cultureLecturePageDocument(pageNo int, storeCode, storeName string) (string, *goquery.Document) {
+func (h *Homeplus) cultureLecturePageDocument(pageNo int, storeCode, storeName string) (string, *goquery.Document) {
 	clPageUrl := fmt.Sprintf("%s/Lecture/GetSearchResult", h.cultureBaseUrl)
 
 	var paramIdx = 0
@@ -169,7 +169,7 @@ func (h *homeplus) cultureLecturePageDocument(pageNo int, storeCode, storeName s
 	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
-	resBodyBytes, err := ioutil.ReadAll(res.Body)
+	resBodyBytes, err := io.ReadAll(res.Body)
 	utils.CheckErr(err)
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(resBodyBytes)))
@@ -178,7 +178,7 @@ func (h *homeplus) cultureLecturePageDocument(pageNo int, storeCode, storeName s
 	return clPageUrl, doc
 }
 
-func (h *homeplus) generateLectureSearchParamString(paramIdx int, id, txt, storeCode, lectureGroupCode string) string {
+func (h *Homeplus) generateLectureSearchParamString(paramIdx int, id, txt, storeCode, lectureGroupCode string) string {
 	var b bytes.Buffer
 	b.WriteString(fmt.Sprintf("&prm[%d][Id]=%s", paramIdx, id))
 	b.WriteString(fmt.Sprintf("&prm[%d][Txt]=%s", paramIdx, txt))
@@ -202,7 +202,7 @@ func (h *homeplus) generateLectureSearchParamString(paramIdx int, id, txt, store
 	return b.String()
 }
 
-func (h *homeplus) extractCultureLecture(clPageUrl string, storeCode string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
+func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
 	// 강좌 그룹
 	title1 := utils.CleanString(s.Find("div.title_1").Text())
 	// 강좌명
@@ -321,7 +321,7 @@ func (h *homeplus) extractCultureLecture(clPageUrl string, storeCode string, sto
 	}
 }
 
-func (h *homeplus) validCultureLectureStore() bool {
+func (h *Homeplus) validCultureLectureStore() bool {
 	res, err := http.Post(fmt.Sprintf("%s/Store/GetStoreList", h.cultureBaseUrl), "application/json; charset=utf-8", nil)
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
@@ -329,7 +329,7 @@ func (h *homeplus) validCultureLectureStore() bool {
 	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
-	resBodyBytes, err := ioutil.ReadAll(res.Body)
+	resBodyBytes, err := io.ReadAll(res.Body)
 	utils.CheckErr(err)
 
 	var storeSearchResult homeplusStoreSearchResult
@@ -352,7 +352,7 @@ func (h *homeplus) validCultureLectureStore() bool {
 	return true
 }
 
-func (h *homeplus) validCultureLectureGroup() bool {
+func (h *Homeplus) validCultureLectureGroup() bool {
 	res, err := http.Get(fmt.Sprintf("%s/Lecture/Search", h.cultureBaseUrl))
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)

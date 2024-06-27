@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// 연령제한타입
+// AgeLimitType 연령제한타입
 type AgeLimitType int
 
 // 지원가능한 연령제한타입 값
@@ -31,19 +31,19 @@ type AgeLimitRange struct {
 	to     int
 }
 
-type scrape struct {
+type Scrape struct {
 	lectures []lectures.Lecture
 }
 
-func New() *scrape {
-	return &scrape{}
+func New() *Scrape {
+	return &Scrape{}
 }
 
 type Scraper interface {
 	ScrapeCultureLectures(mainC chan<- []lectures.Lecture)
 }
 
-func (s *scrape) Scrape(searchYear string, searchSeason string) {
+func (s *Scrape) Scrape(searchYear string, searchSeason string) {
 	log.Println("문화센터 강좌 수집을 시작합니다.")
 
 	searchYear = utils.CleanString(searchYear)
@@ -88,7 +88,7 @@ func (s *scrape) Scrape(searchYear string, searchSeason string) {
 	log.Printf("문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", len(s.lectures))
 }
 
-func (s *scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holidays []string) {
+func (s *Scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holidays []string) {
 	// 접수상태가 접수마감인 강좌를 제외한다.
 	for i, lecture := range s.lectures {
 		if lecture.Status == lectures.ReceptionStatusClosed {
@@ -144,7 +144,7 @@ func (s *scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holid
 	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(s.lectures), excludedLectureCount)
 }
 
-func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitType, int, int) {
+func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitType, int, int) {
 	alTypesMap := map[AgeLimitType]string{
 		AgeLimitAge:    "세",
 		AgeLimitMonths: "개월",
@@ -240,7 +240,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	now := time.Now()
 
 	// nn~nn년생
-	fs = regexp.MustCompile("[0-9]{2}[~][0-9]{2}년생").FindString(lecture.Title)
+	fs = regexp.MustCompile("[0-9]{2}~[0-9]{2}년생").FindString(lecture.Title)
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(fs, "년생", ""), "~")
 
@@ -253,7 +253,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	}
 
 	// nnnn년~nnnn년생
-	fs = regexp.MustCompile("[0-9]{4}년[~][0-9]{4}년생").FindString(lecture.Title)
+	fs = regexp.MustCompile("[0-9]{4}년~[0-9]{4}년생").FindString(lecture.Title)
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
@@ -267,7 +267,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 
 	// 성인~nnnn년
 	// 성인~nnnn년생
-	fs = regexp.MustCompile("성인[~][0-9]{4}년생?").FindString(lecture.Title)
+	fs = regexp.MustCompile("성인~[0-9]{4}년생?").FindString(lecture.Title)
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
@@ -323,7 +323,7 @@ func (s *scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	return AgeLimitUnknwon, 0, math.MaxInt32
 }
 
-func (s *scrape) ExportCSV(fileName string) {
+func (s *Scrape) ExportCSV(fileName string) {
 	/**
 	 * CSV 파일저장
 	 */

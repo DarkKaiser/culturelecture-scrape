@@ -6,7 +6,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
 	"github.com/darkkaiser/culturelecture-scrape/utils"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -16,7 +16,7 @@ import (
 	"sync/atomic"
 )
 
-type lottemart struct {
+type Lottemart struct {
 	name           string
 	cultureBaseUrl string
 
@@ -26,7 +26,7 @@ type lottemart struct {
 	lectureGroupCodeMap map[string]map[string]string // 강좌군
 }
 
-func NewLottemart(searchYear string, searchSeasonCode string) *lottemart {
+func NewLottemart(searchYear string, searchSeasonCode string) *Lottemart {
 	searchYear = utils.CleanString(searchYear)
 	searchSeasonCode = utils.CleanString(searchSeasonCode)
 
@@ -34,7 +34,7 @@ func NewLottemart(searchYear string, searchSeasonCode string) *lottemart {
 		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
 	}
 
-	return &lottemart{
+	return &Lottemart{
 		name: "롯데마트",
 
 		cultureBaseUrl: "https://culture.lottemart.com",
@@ -85,7 +85,7 @@ func NewLottemart(searchYear string, searchSeasonCode string) *lottemart {
 	}
 }
 
-func (l *lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
+func (l *Lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s)", l.name, l.searchTermCode)
 
 	// 강좌군이 유효한지 확인한다.
@@ -160,7 +160,7 @@ func (l *lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	mainC <- lectureList
 }
 
-func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
+func (l *Lottemart) extractCultureLecture(clPageUrl string, storeCode string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
 	// 강좌의 컬럼 개수를 확인한다.
 	ls := s.Find("td")
 	if ls.Length() != 5 {
@@ -264,7 +264,7 @@ func (l *lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 	}
 }
 
-func (l *lottemart) cultureLecturePageDocument(pageNo int, storeCode string) (string, *goquery.Document) {
+func (l *Lottemart) cultureLecturePageDocument(pageNo int, storeCode string) (string, *goquery.Document) {
 	clPageUrl := fmt.Sprintf("%s/cu/gus/course/courseinfo/searchList.do", l.cultureBaseUrl)
 
 	paramArrCatCd := ""
@@ -291,7 +291,7 @@ func (l *lottemart) cultureLecturePageDocument(pageNo int, storeCode string) (st
 	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
-	resBodyBytes, err := ioutil.ReadAll(res.Body)
+	resBodyBytes, err := io.ReadAll(res.Body)
 	utils.CheckErr(err)
 
 	// 실제 불러온 데이터는 '<table>' 태그가 포함되어 있지 않고 '<tr>', '<td>'만 있는 형태!!
@@ -302,7 +302,7 @@ func (l *lottemart) cultureLecturePageDocument(pageNo int, storeCode string) (st
 	return clPageUrl, doc
 }
 
-func (l *lottemart) validCultureLectureStore(storeCode, storeName string) bool {
+func (l *Lottemart) validCultureLectureStore(storeCode, storeName string) bool {
 	res, err := http.Get(fmt.Sprintf("%s/cu/branch/main.do?search_str_cd=%s", l.cultureBaseUrl, storeCode))
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
@@ -321,7 +321,7 @@ func (l *lottemart) validCultureLectureStore(storeCode, storeName string) bool {
 	return true
 }
 
-func (l *lottemart) validCultureLectureGroup() bool {
+func (l *Lottemart) validCultureLectureGroup() bool {
 	res, err := http.Get(fmt.Sprintf("%s/cu/gus/course/courseinfo/courselist.do", l.cultureBaseUrl))
 	utils.CheckErr(err)
 	utils.CheckStatusCode(res)
