@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
 	"github.com/darkkaiser/culturelecture-scrape/utils"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"sync"
 	"sync/atomic"
 )
 
-type emart struct {
+type Emart struct {
 	name           string
 	cultureBaseUrl string
 
@@ -161,14 +161,14 @@ type emartLectureGroupSearchResultData struct {
 	} `json:"data"`
 }
 
-func NewEmart(searchYear string) *emart {
+func NewEmart(searchYear string) *Emart {
 	searchYear = utils.CleanString(searchYear)
 
 	if searchYear == "" {
 		log.Fatalf("검색년도는 빈 문자열을 허용하지 않습니다(검색년도:%s)", searchYear)
 	}
 
-	return &emart{
+	return &Emart{
 		name: "이마트",
 
 		cultureBaseUrl: "https://www.cultureclub.emart.com",
@@ -191,7 +191,7 @@ func NewEmart(searchYear string) *emart {
 	}
 }
 
-func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
+func (e *Emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s년도)", e.name, e.searchYearCode)
 
 	// 강좌군이 유효한지 확인한다.
@@ -254,7 +254,7 @@ func (e *emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
 	mainC <- lectureList
 }
 
-func (e *emart) searchCultureLecture(storeCode string, lectureGroupCodeMap map[string]string, startIndex, size int) *emartLectureSearchResultData {
+func (e *Emart) searchCultureLecture(storeCode string, lectureGroupCodeMap map[string]string, startIndex, size int) *emartLectureSearchResultData {
 	// 불러올 강좌군 코드 목록을 생성한다.
 	lectureGroupCodeString := ""
 	for code := range lectureGroupCodeMap {
@@ -270,7 +270,7 @@ func (e *emart) searchCultureLecture(storeCode string, lectureGroupCodeMap map[s
 	return &lsrd
 }
 
-func (e *emart) extractCultureLecture(storeName string, lsrld emartLectureSearchResultLectureData, c chan<- *lectures.Lecture) {
+func (e *Emart) extractCultureLecture(storeName string, lsrld emartLectureSearchResultLectureData, c chan<- *lectures.Lecture) {
 	// 개강일
 	startDate := lsrld.ClassDateInfo.ClassStartDate
 	if len(startDate) != 8 {
@@ -332,7 +332,7 @@ func (e *emart) extractCultureLecture(storeName string, lsrld emartLectureSearch
 	}
 }
 
-func (e *emart) validCultureLectureStore(storeCode, storeName string) bool {
+func (e *Emart) validCultureLectureStore(storeCode, storeName string) bool {
 	var ssrd emartStoreSearchResultData
 	e.requestSite("{\"query\":\"query getStoreAreaList($isAll: Boolean!) {\\n  getStoreAreaList(isAll: $isAll) {\\n    PK\\n    area\\n    storeListInfo {\\n      storeName\\n      storeCode\\n      storeCenter\\n    }\\n  }\\n}\\n\",\"variables\":{\"isAll\":false}}", &ssrd)
 
@@ -347,7 +347,7 @@ func (e *emart) validCultureLectureStore(storeCode, storeName string) bool {
 	return false
 }
 
-func (e *emart) validCultureLectureGroup() bool {
+func (e *Emart) validCultureLectureGroup() bool {
 	var lgsrd emartLectureGroupSearchResultData
 	e.requestSite("{\"query\":\"query getCategoryList {\\n  getCategoryList {\\n    message {\\n      mainCategory {\\n        PK\\n        SK\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n        useFlag\\n        iconFileName\\n      }\\n      subCategory {\\n        PK\\n        SK\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n        useFlag\\n        iconFileName\\n        mainDisplayFlag\\n        iconFilePath {\\n          bucket\\n          filename\\n          key\\n          region\\n        }\\n      }\\n    }\\n  }\\n}\\n\",\"variables\":{}}", &lgsrd)
 
@@ -373,7 +373,7 @@ func (e *emart) validCultureLectureGroup() bool {
 	return true
 }
 
-func (e *emart) requestSite(body string, v interface{}) {
+func (e *Emart) requestSite(body string, v interface{}) {
 	clPageUrl := fmt.Sprintf("https://o27tfdumlrbf7jmrvql76qbhsm.appsync-api.ap-northeast-2.amazonaws.com/graphql")
 
 	req, err := http.NewRequest("POST", clPageUrl, bytes.NewBufferString(body))
@@ -395,7 +395,7 @@ func (e *emart) requestSite(body string, v interface{}) {
 	//goland:noinspection GoUnhandledErrorResult
 	defer res.Body.Close()
 
-	resBodyBytes, err := ioutil.ReadAll(res.Body)
+	resBodyBytes, err := io.ReadAll(res.Body)
 	utils.CheckErr(err)
 
 	err = json.Unmarshal(resBodyBytes, v)

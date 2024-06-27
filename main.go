@@ -21,11 +21,11 @@ var cultureLecturer = struct {
 var searchYear = "2024"
 
 // 검색시즌(봄, 여름, 가을, 겨울)
-var searchSeason = "봄"
+var searchSeason = "여름"
 
 // 공휴일
 var holidays = []string{
-	// "2021-01-01",
+	"2024-01-01",
 	// "2021-02-11", "2021-02-12", "2021-02-13",
 	// "2021-03-01",
 	// "2021-05-05",

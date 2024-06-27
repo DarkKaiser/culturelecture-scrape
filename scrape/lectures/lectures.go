@@ -16,7 +16,7 @@ type Lecture struct {
 	ScrapeExcluded bool            // 필터링에 걸려서 파일 저장시 제외되는지의 여부(csv 파일에 포함되지 않는다)
 }
 
-// 접수상태
+// ReceptionStatus 접수상태
 type ReceptionStatus uint
 
 // 지원가능한 접수상태 값
@@ -34,5 +34,5 @@ const (
 	ReceptionStatusMax
 )
 
-// 지원가능한 접수상태 문자열
+// ReceptionStatusString 지원가능한 접수상태 문자열
 var ReceptionStatusString = [ReceptionStatusMax]string{"알수없음", "접수예정", "접수가능", "접수마감", "대기신청", "방문상담", "방문선착순", "현장문의", "전화문의", "당일참여"}
