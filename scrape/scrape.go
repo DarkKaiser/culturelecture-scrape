@@ -44,10 +44,10 @@ type Scraper interface {
 }
 
 func (s *Scrape) Scrape(searchYear string, searchSeason string) {
-	log.Println("문화센터 강좌 수집을 시작합니다.")
-
 	searchYear = utils.CleanString(searchYear)
 	searchSeason = utils.CleanString(searchSeason)
+
+	log.Printf("문화센터 강좌 수집을 시작합니다.(검색조건:%s년도 %s)", searchYear, searchSeason)
 
 	if searchYear == "" || searchSeason == "" {
 		log.Fatalf("검색년도 및 검색시즌은 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌:%s)", searchYear, searchSeason)
@@ -239,21 +239,8 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 
 	now := time.Now()
 
-	// nn~nn년생
-	fs = regexp.MustCompile("[0-9]{2}~[0-9]{2}년생").FindString(lecture.Title)
-	if len(fs) > 0 {
-		split := strings.Split(strings.ReplaceAll(fs, "년생", ""), "~")
-
-		from, err := strconv.Atoi(split[0])
-		utils.CheckErr(err)
-		to, err := strconv.Atoi(split[1])
-		utils.CheckErr(err)
-
-		return AgeLimitAge, now.Year() - (2000 + from) + 1, now.Year() - (2000 + to) + 1
-	}
-
-	// nnnn년~nnnn년생
-	fs = regexp.MustCompile("[0-9]{4}년~[0-9]{4}년생").FindString(lecture.Title)
+	// nnnn~nnnn년생, nnnn년~nnnn년생
+	fs = regexp.MustCompile("[0-9]{4}년?~[0-9]{4}년생").FindString(lecture.Title)
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
@@ -263,6 +250,50 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		utils.CheckErr(err)
 
 		return AgeLimitAge, now.Year() - from + 1, now.Year() - to + 1
+	}
+
+	// nnnn~nn년생, nnnn년~nn년생
+	fs = regexp.MustCompile("[0-9]{4}년?~[0-9]{2}년생").FindString(lecture.Title)
+	if len(fs) > 0 {
+		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
+
+		from, err := strconv.Atoi(split[0])
+		utils.CheckErr(err)
+		to, err := strconv.Atoi(split[1])
+		utils.CheckErr(err)
+
+		return AgeLimitAge, now.Year() - from + 1, now.Year() - (2000 + to) + 1
+	}
+
+	// nn~nn년, nn~nn년생
+	fs = regexp.MustCompile("[0-9]{2}~[0-9]{2}년생?").FindString(lecture.Title)
+	if len(fs) > 0 {
+		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
+
+		from, err := strconv.Atoi(split[0])
+		utils.CheckErr(err)
+		to, err := strconv.Atoi(split[1])
+		utils.CheckErr(err)
+
+		return AgeLimitAge, now.Year() - (2000 + from) + 1, now.Year() - (2000 + to) + 1
+	}
+
+	// nnnn년생 이상
+	fs = regexp.MustCompile("[0-9]{4}년생 이상").FindString(lecture.Title)
+	if len(fs) > 0 {
+		from, err := strconv.Atoi(strings.ReplaceAll(fs, "년생 이상", ""))
+		utils.CheckErr(err)
+
+		return AgeLimitAge, now.Year() - from + 1, math.MaxInt32
+	}
+
+	// nn년생 이상
+	fs = regexp.MustCompile("[0-9]{2}년생 이상").FindString(lecture.Title)
+	if len(fs) > 0 {
+		from, err := strconv.Atoi(strings.ReplaceAll(fs, "년생 이상", ""))
+		utils.CheckErr(err)
+
+		return AgeLimitAge, now.Year() - (2000 + from) + 1, math.MaxInt32
 	}
 
 	// 성인~nnnn년
@@ -302,6 +333,11 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		"(초등~성인)": {
 			alType: AgeLimitAge,
 			from:   8,
+			to:     math.MaxInt32,
+		},
+		"(성인~중학생이상)": {
+			alType: AgeLimitAge,
+			from:   14,
 			to:     math.MaxInt32,
 		},
 		"(성인)": {

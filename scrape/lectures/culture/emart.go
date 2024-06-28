@@ -192,7 +192,7 @@ func NewEmart(searchYear string) *Emart {
 }
 
 func (e *Emart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
-	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s년도)", e.name, e.searchYearCode)
+	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", e.name)
 
 	// 강좌군이 유효한지 확인한다.
 	if e.validCultureLectureGroup() == false {
