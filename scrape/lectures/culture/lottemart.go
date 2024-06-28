@@ -86,7 +86,7 @@ func NewLottemart(searchYear string, searchSeasonCode string) *Lottemart {
 }
 
 func (l *Lottemart) ScrapeCultureLectures(mainC chan<- []lectures.Lecture) {
-	log.Printf("%s 문화센터 강좌 수집을 시작합니다.(검색조건:%s)", l.name, l.searchTermCode)
+	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", l.name)
 
 	// 강좌군이 유효한지 확인한다.
 	if l.validCultureLectureGroup() == false {
