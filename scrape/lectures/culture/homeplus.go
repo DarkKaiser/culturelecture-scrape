@@ -207,12 +207,19 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	title1 := utils.CleanString(s.Find("div.title_1").Text())
 	// 강좌명
 	title2 := utils.CleanString(s.Find("div.title_2").Text())
-	// 강좌 수강대상 및 기타 정보
-	info3 := utils.CleanString(s.Find("div.info_3").Text())
-	// 강사명/요일/시간, 형식 : 신혜정 강사 / 일 14:20 ~ 15:00
+	// 요일/시간, 형식 : 일 14:20 ~ 15:00
 	info4 := utils.CleanString(s.Find("div.info_4").Text())
-	// 강좌횟수/수강료/개강일, 형식 : 1회 6,000원 (2023-08-20~2023-08-20)
-	info5 := utils.CleanString(s.Find("div.info_5").Text())
+
+	ls := s.Find("div.info_5")
+	if ls.Length() != 3 {
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", h.name, ls.Length(), clPageUrl)
+	}
+	// 강좌횟수/수강료, 형식 : 1회 6,000원
+	info5Idx0 := utils.CleanString(ls.Eq(0).Text())
+	// 개강일, 형식 : 2023.08.20 ~ 2023.08.20
+	info5Idx1 := utils.CleanString(ls.Eq(1).Text())
+	// 강사명, 형식 : 신혜정 강사
+	info5Idx2 := utils.CleanString(ls.Eq(2).Text())
 
 	// 강좌그룹
 	if len(title1) == 0 {
@@ -224,20 +231,20 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	if len(title2) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌명이 빈 문자열입니다, URL:%s)", h.name, clPageUrl)
 	}
-	title := utils.CleanString(fmt.Sprintf("%s %s ", title2, info3))
+	title := title2
 
 	// 강사
-	teacher := utils.CleanString(regexp.MustCompile("^(.)*강사").FindString(info4))
+	teacher := utils.CleanString(regexp.MustCompile("^(.)*강사").FindString(info5Idx2))
 	if len(teacher) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info4, clPageUrl)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx2, clPageUrl)
 	}
 
 	// 개강일
-	startDate := utils.CleanString(regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}~").FindString(info5))
+	startDate := utils.CleanString(regexp.MustCompile("[0-9]{4}.[0-9]{2}.[0-9]{2} ~").FindString(info5Idx1))
 	if len(startDate) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5, clPageUrl)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx1, clPageUrl)
 	}
-	startDate = startDate[:len(startDate)-1]
+	startDate = strings.ReplaceAll(startDate[:len(startDate)-2], ".", "-")
 
 	// 시작시간, 종료시간
 	startTime := regexp.MustCompile("[0-9]{2}:[0-9]{2} ~").FindString(info4)
@@ -249,21 +256,21 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	endTime = utils.CleanString(endTime[1:])
 
 	// 요일
-	dayOfTheWeek := utils.CleanString(regexp.MustCompile(" [월화수목금토일] ").FindString(info4))
+	dayOfTheWeek := utils.CleanString(regexp.MustCompile("^[월화수목금토일] ").FindString(info4))
 	if len(dayOfTheWeek) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info4, clPageUrl)
 	}
 
 	// 수강료
-	price := utils.CleanString(regexp.MustCompile(" [0-9]{1,3}(,[0-9]{3})*원").FindString(info5))
+	price := utils.CleanString(regexp.MustCompile(" [0-9]{1,3}(,[0-9]{3})*원$").FindString(info5Idx0))
 	if len(price) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5, clPageUrl)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx0, clPageUrl)
 	}
 
 	// 강좌횟수
-	count := utils.CleanString(regexp.MustCompile("^[0-9]{1,3}회").FindString(info5))
+	count := utils.CleanString(regexp.MustCompile("^[0-9]{1,3}회").FindString(info5Idx0))
 	if len(count) == 0 {
-		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5, clPageUrl)
+		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx0, clPageUrl)
 	}
 
 	// 접수상태
