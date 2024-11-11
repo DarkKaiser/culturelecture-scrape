@@ -168,12 +168,16 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		if len(fs) > 0 {
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
-			from, err := strconv.Atoi(split[0])
+			value1, err := strconv.Atoi(split[0])
 			utils.CheckErr(err)
-			to, err := strconv.Atoi(split[1])
+			value2, err := strconv.Atoi(split[1])
 			utils.CheckErr(err)
 
-			return alType, from, to
+			if value1 < value2 {
+				return alType, value1, value2
+			} else {
+				return alType, value2, value1
+			}
 		}
 
 		// n세~초등, n세-초등
@@ -229,12 +233,16 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "초", ""), "-", "~"), "~")
 
-		from, err := strconv.Atoi(split[0])
+		value1, err := strconv.Atoi(split[0])
 		utils.CheckErr(err)
-		to, err := strconv.Atoi(split[1])
+		value2, err := strconv.Atoi(split[1])
 		utils.CheckErr(err)
 
-		return AgeLimitAge, from + 7, to + 7
+		if value1 < value2 {
+			return AgeLimitAge, value1 + 7, value2 + 7
+		} else {
+			return AgeLimitAge, value2 + 7, value1 + 7
+		}
 	}
 
 	now := time.Now()
@@ -244,12 +252,19 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
-		from, err := strconv.Atoi(split[0])
+		value1, err := strconv.Atoi(split[0])
 		utils.CheckErr(err)
-		to, err := strconv.Atoi(split[1])
+		value2, err := strconv.Atoi(split[1])
 		utils.CheckErr(err)
 
-		return AgeLimitAge, now.Year() - from + 1, now.Year() - to + 1
+		value1 = now.Year() - value1 + 1
+		value2 = now.Year() - value2 + 1
+
+		if value1 < value2 {
+			return AgeLimitAge, value1, value2
+		} else {
+			return AgeLimitAge, value2, value1
+		}
 	}
 
 	// nnnn~nn년생, nnnn년~nn년생
@@ -257,12 +272,19 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
-		from, err := strconv.Atoi(split[0])
+		value1, err := strconv.Atoi(split[0])
 		utils.CheckErr(err)
-		to, err := strconv.Atoi(split[1])
+		value2, err := strconv.Atoi(split[1])
 		utils.CheckErr(err)
 
-		return AgeLimitAge, now.Year() - from + 1, now.Year() - (2000 + to) + 1
+		value1 = now.Year() - value1 + 1
+		value2 = now.Year() - (2000 + value2) + 1
+
+		if value1 < value2 {
+			return AgeLimitAge, value1, value2
+		} else {
+			return AgeLimitAge, value2, value1
+		}
 	}
 
 	// nn~nn년, nn~nn년생
@@ -270,12 +292,19 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	if len(fs) > 0 {
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
-		from, err := strconv.Atoi(split[0])
+		value1, err := strconv.Atoi(split[0])
 		utils.CheckErr(err)
-		to, err := strconv.Atoi(split[1])
+		value2, err := strconv.Atoi(split[1])
 		utils.CheckErr(err)
 
-		return AgeLimitAge, now.Year() - (2000 + from) + 1, now.Year() - (2000 + to) + 1
+		value1 = now.Year() - (2000 + value1) + 1
+		value2 = now.Year() - (2000 + value2) + 1
+
+		if value1 < value2 {
+			return AgeLimitAge, value1, value2
+		} else {
+			return AgeLimitAge, value2, value1
+		}
 	}
 
 	// nnnn년생 이상
