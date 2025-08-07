@@ -262,6 +262,10 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	}
 
 	// 수강료
+
+	// '1회 7,000원 (2인 기준)' => '1회 7,000원'
+	info5Idx0 = utils.CleanString(regexp.MustCompile(`\s*\(\d+인 기준\)`).ReplaceAllString(info5Idx0, ""))
+
 	price := utils.CleanString(regexp.MustCompile(" [0-9]{1,3}(,[0-9]{3})*원$").FindString(info5Idx0))
 	if len(price) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx0, clPageUrl)
