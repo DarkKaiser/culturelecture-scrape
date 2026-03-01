@@ -1,4 +1,4 @@
-package scrape
+package scraper
 
 import (
 	"encoding/csv"
@@ -12,9 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/darkkaiser/culturelecture-scrape/internal/scrape/lectures"
-	"github.com/darkkaiser/culturelecture-scrape/internal/scrape/lectures/culture"
-	"github.com/darkkaiser/culturelecture-scrape/internal/utils"
+	"github.com/darkkaiser/culturelecture-scrape/internal/domain"
+	"github.com/darkkaiser/culturelecture-scrape/internal/scraper/provider"
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 )
 
@@ -35,7 +34,7 @@ type AgeLimitRange struct {
 }
 
 type Scrape struct {
-	lectures []lectures.Lecture
+	lectures []domain.Lecture
 }
 
 func New() *Scrape {
@@ -43,17 +42,17 @@ func New() *Scrape {
 }
 
 type Scraper interface {
-	ScrapeCultureLectures(mainC chan<- []lectures.Lecture)
+	ScrapeCultureLectures(mainC chan<- []domain.Lecture) error
 }
 
-func (s *Scrape) Scrape(searchYear string, searchSeason string) {
+func (s *Scrape) Scrape(searchYear string, searchSeason string) error {
 	searchYear = strutil.NormalizeSpace(searchYear)
 	searchSeason = strutil.NormalizeSpace(searchSeason)
 
 	log.Printf("문화센터 강좌 수집을 시작합니다.(검색조건:%s년도 %s)", searchYear, searchSeason)
 
 	if searchYear == "" || searchSeason == "" {
-		log.Fatalf("검색년도 및 검색시즌은 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌:%s)", searchYear, searchSeason)
+		return fmt.Errorf("검색년도 및 검색시즌은 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌:%s)", searchYear, searchSeason)
 	}
 
 	// 검색시즌코드(봄:1, 여름:2, 가을:3, 겨울:4)
@@ -68,18 +67,23 @@ func (s *Scrape) Scrape(searchYear string, searchSeason string) {
 	case "겨울":
 		searchSeasonCode = "4"
 	default:
-		log.Fatalf("입력된 검색시즌이 올바르지 않습니다(검색시즌:%s)", searchSeason)
+		return fmt.Errorf("입력된 검색시즌이 올바르지 않습니다(검색시즌:%s)", searchSeason)
 	}
 
 	scrapers := []Scraper{
-		culture.NewHomeplus(),
-		culture.NewLottemart(searchYear, searchSeasonCode),
-		culture.NewEmart(searchYear),
+		provider.NewHomeplus(),
+		provider.NewLottemart(searchYear, searchSeasonCode),
+		provider.NewEmart(searchYear),
 	}
 
-	c := make(chan []lectures.Lecture, len(scrapers))
+	c := make(chan []domain.Lecture, len(scrapers))
 	for _, scraper := range scrapers {
-		go scraper.ScrapeCultureLectures(c)
+		go func(sc Scraper) {
+			err := sc.ScrapeCultureLectures(c)
+			if err != nil {
+				log.Fatalf("스크래핑 작업 중 오류 발생하여 즉시 종료합니다: %v", err)
+			}
+		}(scraper)
 	}
 
 	s.lectures = nil
@@ -89,12 +93,13 @@ func (s *Scrape) Scrape(searchYear string, searchSeason string) {
 	}
 
 	log.Printf("문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", len(s.lectures))
+	return nil
 }
 
 func (s *Scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holidays []string) {
 	// 접수상태가 접수마감인 강좌를 제외한다.
 	for i, lecture := range s.lectures {
-		if lecture.Status == lectures.ReceptionStatusClosed {
+		if lecture.Status == domain.ReceptionStatusClosed {
 			s.lectures[i].ScrapeExcluded = true
 		}
 	}
@@ -104,7 +109,10 @@ func (s *Scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holid
 	for i, lecture := range s.lectures {
 		if slices.Contains(weekdays, lecture.DayOfTheWeek) == true && slices.Contains(holidays, lecture.StartDate) == false {
 			h24, err := strconv.Atoi(lecture.StartTime[:2])
-			utils.CheckErr(err)
+			if err != nil {
+				log.Printf("강좌 시작시간 파싱 오류 (강좌명: %s, 시간: %s): %v", lecture.Title, lecture.StartTime, err)
+				continue
+			}
 
 			if h24 < 16 {
 				s.lectures[i].ScrapeExcluded = true
@@ -124,7 +132,11 @@ func (s *Scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holid
 
 	// 개월수 및 나이에 포함되지 않는 강좌는 제외한다.
 	for i, lecture := range s.lectures {
-		alType, from, to := s.extractMonthsOrAgeRange(&lecture)
+		alType, from, to, err := s.extractMonthsOrAgeRange(&lecture)
+		if err != nil {
+			log.Printf("연령 범위 추출 오류 (강좌명: %s): %v", lecture.Title, err)
+			continue
+		}
 
 		if alType == AgeLimitMonths {
 			if cultureLecturerMonths < from || cultureLecturerMonths > to {
@@ -147,7 +159,7 @@ func (s *Scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holid
 	log.Printf("총 %d건의 문화센터 강좌중에서 %d건이 필터링되어 제외되었습니다.", len(s.lectures), excludedLectureCount)
 }
 
-func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitType, int, int) {
+func (s *Scrape) extractMonthsOrAgeRange(lecture *domain.Lecture) (AgeLimitType, int, int, error) {
 	alTypesMap := map[AgeLimitType]string{
 		AgeLimitAge:    "세",
 		AgeLimitMonths: "개월",
@@ -159,9 +171,11 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			fs := regexp.MustCompile("[0-9]{1,2}" + v).FindString(lecture.Title)
 			if len(fs) > 0 {
 				from, err := strconv.Atoi(strings.ReplaceAll(fs, v, ""))
-				utils.CheckErr(err)
+				if err != nil {
+					return AgeLimitUnknwon, 0, 0, err
+				}
 
-				return alType, from, math.MaxInt32
+				return alType, from, math.MaxInt32, nil
 			}
 		}
 
@@ -172,14 +186,18 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
 			value1, err := strconv.Atoi(split[0])
-			utils.CheckErr(err)
+			if err != nil {
+				return AgeLimitUnknwon, 0, 0, err
+			}
 			value2, err := strconv.Atoi(split[1])
-			utils.CheckErr(err)
+			if err != nil {
+				return AgeLimitUnknwon, 0, 0, err
+			}
 
 			if value1 < value2 {
-				return alType, value1, value2
+				return alType, value1, value2, nil
 			} else {
-				return alType, value2, value1
+				return alType, value2, value1, nil
 			}
 		}
 
@@ -190,14 +208,16 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
 			from, err := strconv.Atoi(split[0])
-			utils.CheckErr(err)
+			if err != nil {
+				return AgeLimitUnknwon, 0, 0, err
+			}
 
 			to := 13
 			if alType == AgeLimitMonths {
 				to *= 12
 			}
 
-			return alType, from, to
+			return alType, from, to, nil
 		}
 
 		// n세~초n, n세-초n
@@ -207,17 +227,21 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 			split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "-", "~"), "~")
 
 			from, err := strconv.Atoi(split[0])
-			utils.CheckErr(err)
+			if err != nil {
+				return AgeLimitUnknwon, 0, 0, err
+			}
 
 			to, err := strconv.Atoi(strings.ReplaceAll(split[1], "초", ""))
-			utils.CheckErr(err)
+			if err != nil {
+				return AgeLimitUnknwon, 0, 0, err
+			}
 
 			to += 7
 			if alType == AgeLimitMonths {
 				to *= 12
 			}
 
-			return alType, from, to
+			return alType, from, to, nil
 		}
 
 		// (n세)
@@ -225,9 +249,11 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		fs = regexp.MustCompile(fmt.Sprintf("\\([0-9]{1,2}%s\\)", alTypeString)).FindString(lecture.Title)
 		if len(fs) > 0 {
 			no, err := strconv.Atoi(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fs, alTypeString, ""), "(", ""), ")", ""))
-			utils.CheckErr(err)
+			if err != nil {
+				return AgeLimitUnknwon, 0, 0, err
+			}
 
-			return alType, no, no
+			return alType, no, no, nil
 		}
 	}
 
@@ -237,14 +263,18 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "초", ""), "-", "~"), "~")
 
 		value1, err := strconv.Atoi(split[0])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 		value2, err := strconv.Atoi(split[1])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 
 		if value1 < value2 {
-			return AgeLimitAge, value1 + 7, value2 + 7
+			return AgeLimitAge, value1 + 7, value2 + 7, nil
 		} else {
-			return AgeLimitAge, value2 + 7, value1 + 7
+			return AgeLimitAge, value2 + 7, value1 + 7, nil
 		}
 	}
 
@@ -256,17 +286,21 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
 		value1, err := strconv.Atoi(split[0])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 		value2, err := strconv.Atoi(split[1])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 
 		value1 = now.Year() - value1 + 1
 		value2 = now.Year() - value2 + 1
 
 		if value1 < value2 {
-			return AgeLimitAge, value1, value2
+			return AgeLimitAge, value1, value2, nil
 		} else {
-			return AgeLimitAge, value2, value1
+			return AgeLimitAge, value2, value1, nil
 		}
 	}
 
@@ -276,17 +310,21 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
 		value1, err := strconv.Atoi(split[0])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 		value2, err := strconv.Atoi(split[1])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 
 		value1 = now.Year() - value1 + 1
 		value2 = now.Year() - (2000 + value2) + 1
 
 		if value1 < value2 {
-			return AgeLimitAge, value1, value2
+			return AgeLimitAge, value1, value2, nil
 		} else {
-			return AgeLimitAge, value2, value1
+			return AgeLimitAge, value2, value1, nil
 		}
 	}
 
@@ -296,17 +334,21 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
 		value1, err := strconv.Atoi(split[0])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 		value2, err := strconv.Atoi(split[1])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 
 		value1 = now.Year() - (2000 + value1) + 1
 		value2 = now.Year() - (2000 + value2) + 1
 
 		if value1 < value2 {
-			return AgeLimitAge, value1, value2
+			return AgeLimitAge, value1, value2, nil
 		} else {
-			return AgeLimitAge, value2, value1
+			return AgeLimitAge, value2, value1, nil
 		}
 	}
 
@@ -314,18 +356,22 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	fs = regexp.MustCompile("[0-9]{4}년생 이상").FindString(lecture.Title)
 	if len(fs) > 0 {
 		from, err := strconv.Atoi(strings.ReplaceAll(fs, "년생 이상", ""))
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 
-		return AgeLimitAge, now.Year() - from + 1, math.MaxInt32
+		return AgeLimitAge, now.Year() - from + 1, math.MaxInt32, nil
 	}
 
 	// nn년생 이상
 	fs = regexp.MustCompile("[0-9]{2}년생 이상").FindString(lecture.Title)
 	if len(fs) > 0 {
 		from, err := strconv.Atoi(strings.ReplaceAll(fs, "년생 이상", ""))
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 
-		return AgeLimitAge, now.Year() - (2000 + from) + 1, math.MaxInt32
+		return AgeLimitAge, now.Year() - (2000 + from) + 1, math.MaxInt32, nil
 	}
 
 	// 성인~nnnn년
@@ -335,9 +381,11 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		split := strings.Split(strings.ReplaceAll(strings.ReplaceAll(fs, "년생", ""), "년", ""), "~")
 
 		from, err := strconv.Atoi(split[1])
-		utils.CheckErr(err)
+		if err != nil {
+			return AgeLimitUnknwon, 0, 0, err
+		}
 
-		return AgeLimitAge, now.Year() - from + 1, math.MaxInt32
+		return AgeLimitAge, now.Year() - from + 1, math.MaxInt32, nil
 	}
 
 	// 강좌명에 특정 문자열이 포함되어 있는 경우, 연령제한타입 및 나이 범위를 임의적으로 반환한다.
@@ -380,7 +428,7 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 	}
 	for k, v := range specificTextMap {
 		if strings.Contains(lecture.Title, k) == true {
-			return v.alType, v.from, v.to
+			return v.alType, v.from, v.to, nil
 		}
 	}
 
@@ -388,30 +436,36 @@ func (s *Scrape) extractMonthsOrAgeRange(lecture *lectures.Lecture) (AgeLimitTyp
 		log.Printf(" >> 수집된 강좌의 연령(나이, 개월수) 추출 실패, 필터링 대상에서 제외됩니다.(%s : %s)", lecture.StoreName, lecture.Title)
 	}
 
-	return AgeLimitUnknwon, 0, math.MaxInt32
+	return AgeLimitUnknwon, 0, math.MaxInt32, nil
 }
 
-func (s *Scrape) ExportCSV(fileName string) {
+func (s *Scrape) ExportCSV(fileName string) error {
 	/**
 	 * CSV 파일저장
 	 */
 	log.Println("수집된 문화센터 강좌 자료를 CSV 파일로 저장합니다.")
 
 	f, err := os.Create(fileName)
-	utils.CheckErr(err)
+	if err != nil {
+		return fmt.Errorf("CSV 파일 생성 실패: %v", err)
+	}
 
 	//goland:noinspection GoUnhandledErrorResult
 	defer f.Close()
 
 	// 파일 첫 부분에 UTF-8 BOM을 추가한다.
 	_, err = f.WriteString("\xEF\xBB\xBF")
-	utils.CheckErr(err)
+	if err != nil {
+		return fmt.Errorf("UTF-8 BOM 쓰기 실패: %v", err)
+	}
 
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
 	headers := []string{"점포", "강좌그룹", "강좌명", "강사명", "개강일", "시작시간", "종료시간", "요일", "수강료", "강좌횟수", "접수상태", "상세페이지"}
-	utils.CheckErr(w.Write(headers))
+	if err := w.Write(headers); err != nil {
+		return fmt.Errorf("CSV 헤더 쓰기 실패: %v", err)
+	}
 
 	count := 0
 	for _, lecture := range s.lectures {
@@ -430,12 +484,16 @@ func (s *Scrape) ExportCSV(fileName string) {
 			lecture.DayOfTheWeek,
 			lecture.Price,
 			lecture.Count,
-			lectures.ReceptionStatusString[lecture.Status],
+			domain.ReceptionStatusString[lecture.Status],
 			lecture.DetailPageUrl,
 		}
-		utils.CheckErr(w.Write(r))
+		if err := w.Write(r); err != nil {
+			return fmt.Errorf("CSV 레코드 쓰기 실패: %v", err)
+		}
 		count++
 	}
 
 	log.Printf("수집된 문화센터 강좌 자료(%d건)를 CSV 파일(%s)로 저장하였습니다.", count, fileName)
+
+	return nil
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/darkkaiser/culturelecture-scrape/internal/scrape"
+	"github.com/darkkaiser/culturelecture-scrape/internal/scraper"
 )
 
 // 문화센터 강좌 수강자
@@ -19,10 +19,10 @@ var cultureLecturer = struct {
 /****************************************************************************** */
 
 // 검색년도
-var searchYear = "2025"
+var searchYear = "2026"
 
 // 검색시즌(봄, 여름, 가을, 겨울)
-var searchSeason = "겨울"
+var searchSeason = "봄"
 
 // 공휴일
 var holidays = []string{
@@ -68,12 +68,19 @@ func main() {
 	fmt.Println("###                                                  ###")
 	fmt.Println("########################################################")
 	fmt.Println("")
-	fmt.Println(fmt.Sprintf(" ▶ %s년 %s 문화센터 강좌를 수집합니다.", searchYear, searchSeason))
-	fmt.Println(fmt.Sprintf(" ▶ 문화센터 강좌 수강자는 %d세(%d개월) 아이입니다.\n", cultureLecturerAge, cultureLecturerMonths))
+	fmt.Printf(" ▶ %s년 %s 문화센터 강좌를 수집합니다.\n", searchYear, searchSeason)
+	fmt.Printf(" ▶ 문화센터 강좌 수강자는 %d세(%d개월) 아이입니다.\n\n", cultureLecturerAge, cultureLecturerMonths)
 
-	s := scrape.New()
-	s.Scrape(searchYear, searchSeason)
+	s := scraper.New()
+	err := s.Scrape(searchYear, searchSeason)
+	if err != nil {
+		fmt.Printf("강좌 수집 실패: %v\n", err)
+		return
+	}
 	s.Filter(cultureLecturerMonths, cultureLecturerAge, holidays)
 
-	s.ExportCSV(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
+	err = s.ExportCSV(fmt.Sprintf("culturelecture-scrape-%d%02d%02d%02d%02d%02d.csv", now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()))
+	if err != nil {
+		fmt.Printf("CSV 저장 실패: %v\n", err)
+	}
 }

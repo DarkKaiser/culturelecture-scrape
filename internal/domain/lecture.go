@@ -1,4 +1,4 @@
-package lectures
+package domain
 
 type Lecture struct {
 	StoreName      string          // 점포

@@ -6,7 +6,7 @@ toolchain go1.24.11
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0
-	github.com/darkkaiser/notify-server v1.0.1
+	github.com/darkkaiser/notify-server v1.1.0
 )
 
 require (
