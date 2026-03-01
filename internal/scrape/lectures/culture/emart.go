@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
-	"github.com/darkkaiser/culturelecture-scrape/utils"
 	"io"
 	"log"
 	"net/http"
 	"sync"
 	"sync/atomic"
+
+	"github.com/darkkaiser/culturelecture-scrape/internal/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/internal/utils"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
 )
 
 type Emart struct {
@@ -162,7 +164,7 @@ type emartLectureGroupSearchResultData struct {
 }
 
 func NewEmart(searchYear string) *Emart {
-	searchYear = utils.CleanString(searchYear)
+	searchYear = strutil.NormalizeSpace(searchYear)
 
 	if searchYear == "" {
 		log.Fatalf("검색년도는 빈 문자열을 허용하지 않습니다(검색년도:%s)", searchYear)

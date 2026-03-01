@@ -3,9 +3,6 @@ package culture
 import (
 	"bytes"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
-	"github.com/darkkaiser/culturelecture-scrape/utils"
 	"io"
 	"log"
 	"net/http"
@@ -14,6 +11,11 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/darkkaiser/culturelecture-scrape/internal/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/internal/utils"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
 )
 
 type Lottemart struct {
@@ -27,8 +29,8 @@ type Lottemart struct {
 }
 
 func NewLottemart(searchYear string, searchSeasonCode string) *Lottemart {
-	searchYear = utils.CleanString(searchYear)
-	searchSeasonCode = utils.CleanString(searchSeasonCode)
+	searchYear = strutil.NormalizeSpace(searchYear)
+	searchSeasonCode = strutil.NormalizeSpace(searchSeasonCode)
 
 	if searchYear == "" || searchSeasonCode == "" {
 		log.Fatalf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
@@ -168,20 +170,20 @@ func (l *Lottemart) extractCultureLecture(clPageUrl string, storeCode string, st
 	}
 
 	// 강사명, 형식 : 김준희
-	lectureCol2 := utils.CleanString(ls.Eq(1).Text())
+	lectureCol2 := strutil.NormalizeSpace(ls.Eq(1).Text())
 	// 개강일/요일/시간, 형식 : 2020.12.05(토) 15:20~16:00
-	lectureCol3 := utils.CleanString(ls.Eq(2).Text())
+	lectureCol3 := strutil.NormalizeSpace(ls.Eq(2).Text())
 	// 수강료, 형식 : 12회 80,000원 60,000원
-	lectureCol4 := utils.CleanString(ls.Eq(3).Text())
+	lectureCol4 := strutil.NormalizeSpace(ls.Eq(3).Text())
 	// 접수상태/수강신청, 형식 : 바로신청
-	lectureCol5 := utils.CleanString(ls.Eq(4).Find("div > div > a.btn-status:last-child").Text())
+	lectureCol5 := strutil.NormalizeSpace(ls.Eq(4).Find("div > div > a.btn-status:last-child").Text())
 
 	// 강좌명
 	lts := ls.Eq(0).Find("div.info-txt > a")
 	if lts.Length() == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌명 <a> 태그를 찾을 수 없습니다, URL:%s)", l.name, clPageUrl)
 	}
-	title := utils.CleanString(lts.Text())
+	title := strutil.NormalizeSpace(lts.Text())
 
 	// 개강일
 	startDate := regexp.MustCompile("^[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}").FindString(lectureCol3)
@@ -314,7 +316,7 @@ func (l *Lottemart) validCultureLectureStore(storeCode, storeName string) bool {
 	utils.CheckErr(err)
 
 	vSelection := doc.Find("#contents div.branch_main-wrap div.branch_info-area > div.branch_spot-area > h3")
-	if vSelection.Length() != 1 || utils.CleanString(vSelection.Text()) != storeName {
+	if vSelection.Length() != 1 || strutil.NormalizeSpace(vSelection.Text()) != storeName {
 		return false
 	}
 
@@ -344,7 +346,7 @@ func (l *Lottemart) validCultureLectureGroup() bool {
 			}
 
 			lectureGroupSelection := lectureGroupsIDSelection.Parent().Parent().Parent().Find(fmt.Sprintf("dd > ul > li > div > input[value='%s']", lectureGroupCode))
-			if lectureGroupSelection.Length() != 1 || utils.CleanString(lectureGroupSelection.Parent().Text()) != lectureGroupName {
+			if lectureGroupSelection.Length() != 1 || strutil.NormalizeSpace(lectureGroupSelection.Parent().Text()) != lectureGroupName {
 				return false
 			}
 		}

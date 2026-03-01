@@ -1,5 +1,17 @@
 module github.com/darkkaiser/culturelecture-scrape
 
-go 1.14
+go 1.24.0
 
-require github.com/PuerkitoBio/goquery v1.9.2
+toolchain go1.24.11
+
+require (
+	github.com/PuerkitoBio/goquery v1.11.0
+	github.com/darkkaiser/notify-server v1.0.1
+)
+
+require (
+	github.com/andybalholm/cascadia v1.3.3 // indirect
+	golang.org/x/net v0.50.0 // indirect
+)
+
+replace github.com/darkkaiser/notify-server => ../notify-server

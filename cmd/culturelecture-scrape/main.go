@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/darkkaiser/culturelecture-scrape/scrape"
 	"time"
+
+	"github.com/darkkaiser/culturelecture-scrape/internal/scrape"
 )
 
 // 문화센터 강좌 수강자
@@ -21,7 +22,7 @@ var cultureLecturer = struct {
 var searchYear = "2025"
 
 // 검색시즌(봄, 여름, 가을, 겨울)
-var searchSeason = "여름"
+var searchSeason = "겨울"
 
 // 공휴일
 var holidays = []string{

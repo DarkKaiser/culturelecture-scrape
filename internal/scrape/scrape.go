@@ -3,16 +3,19 @@ package scrape
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
-	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures/culture"
-	"github.com/darkkaiser/culturelecture-scrape/utils"
 	"log"
 	"math"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/darkkaiser/culturelecture-scrape/internal/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/internal/scrape/lectures/culture"
+	"github.com/darkkaiser/culturelecture-scrape/internal/utils"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
 )
 
 // AgeLimitType 연령제한타입
@@ -44,8 +47,8 @@ type Scraper interface {
 }
 
 func (s *Scrape) Scrape(searchYear string, searchSeason string) {
-	searchYear = utils.CleanString(searchYear)
-	searchSeason = utils.CleanString(searchSeason)
+	searchYear = strutil.NormalizeSpace(searchYear)
+	searchSeason = strutil.NormalizeSpace(searchSeason)
 
 	log.Printf("문화센터 강좌 수집을 시작합니다.(검색조건:%s년도 %s)", searchYear, searchSeason)
 
@@ -99,7 +102,7 @@ func (s *Scrape) Filter(cultureLecturerMonths int, cultureLecturerAge int, holid
 	// 주말 및 공휴일이 아닌 평일 16시 이전의 강좌를 제외한다.
 	weekdays := []string{"월요일", "화요일", "수요일", "목요일", "금요일"}
 	for i, lecture := range s.lectures {
-		if utils.Contains(weekdays, lecture.DayOfTheWeek) == true && utils.Contains(holidays, lecture.StartDate) == false {
+		if slices.Contains(weekdays, lecture.DayOfTheWeek) == true && slices.Contains(holidays, lecture.StartDate) == false {
 			h24, err := strconv.Atoi(lecture.StartTime[:2])
 			utils.CheckErr(err)
 

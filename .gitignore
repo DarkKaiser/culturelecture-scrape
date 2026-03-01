@@ -20,5 +20,5 @@ logs/
 # .idea 폴더
 .idea/
 
-# CSV 파일
+bin/
 culturelecture-scrape-*.csv

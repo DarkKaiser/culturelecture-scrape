@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/culturelecture-scrape/scrape/lectures"
-	"github.com/darkkaiser/culturelecture-scrape/utils"
 	"io"
 	"log"
 	"math"
@@ -16,6 +13,11 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/darkkaiser/culturelecture-scrape/internal/scrape/lectures"
+	"github.com/darkkaiser/culturelecture-scrape/internal/utils"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
 )
 
 const homeplusLectureSearchPageSize = 20
@@ -204,22 +206,22 @@ func (h *Homeplus) generateLectureSearchParamString(paramIdx int, id, txt, store
 
 func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *goquery.Selection, c chan<- *lectures.Lecture) {
 	// 강좌 그룹
-	title1 := utils.CleanString(s.Find("div.title_1").Text())
+	title1 := strutil.NormalizeSpace(s.Find("div.title_1").Text())
 	// 강좌명
-	title2 := utils.CleanString(s.Find("div.title_2").Text())
+	title2 := strutil.NormalizeSpace(s.Find("div.title_2").Text())
 	// 요일/시간, 형식 : 일 14:20 ~ 15:00
-	info4 := utils.CleanString(s.Find("div.info_4").Text())
+	info4 := strutil.NormalizeSpace(s.Find("div.info_4").Text())
 
 	ls := s.Find("div.info_5")
 	if ls.Length() != 3 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌 컬럼 개수 불일치:%d, URL:%s)", h.name, ls.Length(), clPageUrl)
 	}
 	// 강좌횟수/수강료, 형식 : 1회 6,000원
-	info5Idx0 := utils.CleanString(ls.Eq(0).Text())
+	info5Idx0 := strutil.NormalizeSpace(ls.Eq(0).Text())
 	// 개강일, 형식 : 2023.08.20 ~ 2023.08.20
-	info5Idx1 := utils.CleanString(ls.Eq(1).Text())
+	info5Idx1 := strutil.NormalizeSpace(ls.Eq(1).Text())
 	// 강사명, 형식 : 신혜정 강사
-	info5Idx2 := utils.CleanString(ls.Eq(2).Text())
+	info5Idx2 := strutil.NormalizeSpace(ls.Eq(2).Text())
 
 	// 강좌그룹
 	if len(title1) == 0 {
@@ -234,13 +236,13 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	title := title2
 
 	// 강사
-	teacher := utils.CleanString(regexp.MustCompile("^(.)*강사").FindString(info5Idx2))
+	teacher := strutil.NormalizeSpace(regexp.MustCompile("^(.)*강사").FindString(info5Idx2))
 	if len(teacher) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx2, clPageUrl)
 	}
 
 	// 개강일
-	startDate := utils.CleanString(regexp.MustCompile("[0-9]{4}.[0-9]{2}.[0-9]{2} ~").FindString(info5Idx1))
+	startDate := strutil.NormalizeSpace(regexp.MustCompile("[0-9]{4}.[0-9]{2}.[0-9]{2} ~").FindString(info5Idx1))
 	if len(startDate) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx1, clPageUrl)
 	}
@@ -252,11 +254,11 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	if len(startTime) == 0 || len(endTime) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info4, clPageUrl)
 	}
-	startTime = utils.CleanString(startTime[:len(startTime)-1])
-	endTime = utils.CleanString(endTime[1:])
+	startTime = strutil.NormalizeSpace(startTime[:len(startTime)-1])
+	endTime = strutil.NormalizeSpace(endTime[1:])
 
 	// 요일
-	dayOfTheWeek := utils.CleanString(regexp.MustCompile("^[월화수목금토일] ").FindString(info4))
+	dayOfTheWeek := strutil.NormalizeSpace(regexp.MustCompile("^[월화수목금토일] ").FindString(info4))
 	if len(dayOfTheWeek) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info4, clPageUrl)
 	}
@@ -264,15 +266,15 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	// 수강료
 
 	// '1회 7,000원 (2인 기준)' => '1회 7,000원'
-	info5Idx0 = utils.CleanString(regexp.MustCompile(`\s*\(\d+인 기준\)`).ReplaceAllString(info5Idx0, ""))
+	info5Idx0 = strutil.NormalizeSpace(regexp.MustCompile(`\s*\(\d+인 기준\)`).ReplaceAllString(info5Idx0, ""))
 
-	price := utils.CleanString(regexp.MustCompile(" [0-9]{1,3}(,[0-9]{3})*원$").FindString(info5Idx0))
+	price := strutil.NormalizeSpace(regexp.MustCompile(" [0-9]{1,3}(,[0-9]{3})*원$").FindString(info5Idx0))
 	if len(price) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx0, clPageUrl)
 	}
 
 	// 강좌횟수
-	count := utils.CleanString(regexp.MustCompile("^[0-9]{1,3}회").FindString(info5Idx0))
+	count := strutil.NormalizeSpace(regexp.MustCompile("^[0-9]{1,3}회").FindString(info5Idx0))
 	if len(count) == 0 {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(분석데이터:%s, URL:%s)", h.name, info5Idx0, clPageUrl)
 	}
@@ -282,7 +284,7 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 	if exists == false {
 		log.Fatalf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(접수상태 추출이 실패하였습니다, URL:%s)", h.name, clPageUrl)
 	}
-	classCartStatus := utils.CleanString(s.Find("button.btn_class_cart > span:last-child").Text())
+	classCartStatus := strutil.NormalizeSpace(s.Find("button.btn_class_cart > span:last-child").Text())
 
 	var status = lectures.ReceptionStatusUnknown
 	switch classCartImgUrl {
@@ -327,7 +329,7 @@ func (h *Homeplus) extractCultureLecture(clPageUrl string, storeName string, s *
 		Price:          price,
 		Count:          count,
 		Status:         status,
-		DetailPageUrl:  fmt.Sprintf("%s/Lecture/Detail?LectureMasterID=%s", h.cultureBaseUrl, utils.CleanString(lectureMasterId)),
+		DetailPageUrl:  fmt.Sprintf("%s/Lecture/Detail?LectureMasterID=%s", h.cultureBaseUrl, strutil.NormalizeSpace(lectureMasterId)),
 		ScrapeExcluded: false,
 	}
 }
@@ -381,7 +383,7 @@ func (h *Homeplus) validCultureLectureGroup() bool {
 		}
 
 		val := lectureGroupSelection.Text()
-		if utils.CleanString(val) != lectureGroupName {
+		if strutil.NormalizeSpace(val) != lectureGroupName {
 			return false
 		}
 	}
