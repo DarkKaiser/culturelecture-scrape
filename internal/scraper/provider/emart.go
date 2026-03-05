@@ -2,15 +2,16 @@ package provider
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"sync"
 	"sync/atomic"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/darkkaiser/culturelecture-scrape/internal/domain"
+	"github.com/darkkaiser/culturelecture-scrape/internal/scraper"
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 )
 
@@ -20,13 +21,14 @@ type Emart struct {
 
 	searchYearCode string // 검색년도
 	searchSmstCode string // 검색시즌 코드(미사용)
+	authToken      string // 외부 주입 이마트 API 토큰
+	client         *scraper.Client
 
 	storeCodeMap        map[string]string // 점포
 	lectureGroupCodeMap map[string]string // 강좌군
 }
 
-// TODO: 이마트 수집 중 401 Unauthorized 에러가 발생하면, 브라우저 관리자 도구(F12)의 네트워크 탭에서 최근 Authorization 토큰을 복사하여 아래 상수를 교체해 주세요.
-const emartAuthToken = "eyJraWQiOiJMdmZXelNObFM0WEFTU2RJcytiYXJlNHl6VWNyVmNWRExqcHQyanBDNlE0PSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmODU2YjQxNy0wMjQ4LTQ3ZmQtYTM5Ni01OGE2NDczODA3YjUiLCJiaXJ0aGRhdGUiOiIxOTc4LTA2LTE2IiwiY3VzdG9tOm1icktleSI6ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpqZEcwaU9pSkRNREF3TURBd05DSXNJbk5wWkNJNkltVnRZWEowWTNWc2RDSXNJbUYxWkNJNklrRlFVQ0lzSW5WcFpDSTZJbHd2UldaMk1VMDJSM1JJYUhOU2NYSXdaMVZTZG14blBUMGlMQ0psZUhBaU9qRTJOVEk0TURJNE1EWXNJbWx6Y3lJNklrTnNkV1JOWlcxaVpYSnphR2x3SWl3aWFtRjBJam94TmpVeU56VTVOakEyTENKcWRHa2lPaUppTTJJd05UUmhaUzA0TTJVeUxUUTVaR1V0T1RnME1DMDROV1UyWWpJM05qazJaallpZlEua01kNk5HX0RhX0RvcHBUeldVMmpFSjJWLWpQRUhDUktCclhNVTRQMk42YyIsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC5hcC1ub3J0aGVhc3QtMi5hbWF6b25hd3MuY29tXC9hcC1ub3J0aGVhc3QtMl9FMXRsWmcxY0UiLCJjb2duaXRvOnVzZXJuYW1lIjoiQzcxNTQ3MDI1IiwiY3VzdG9tOmVjY2lkIjoiMTk2NTc0MTkiLCJvcmlnaW5fanRpIjoiNzAyMTU1NWMtYTNhZS00YmI4LWFiNWEtYjFjMjhmMGUzY2Y5IiwiYXVkIjoiMWIwbTc2bXF1amtxczBtZDRsbGllaTQwMzIiLCJldmVudF9pZCI6ImYxNjc5OTZjLWMzNzgtNGJkMi04MDJjLTViNGNjYmMyMjkwNyIsInRva2VuX3VzZSI6ImlkIiwiYXV0aF90aW1lIjoxNjUyNzU5NjA3LCJuYW1lIjoi7Y647KeE7Zy0IiwiZXhwIjoxNjUyNzYzMjA3LCJpYXQiOjE2NTI3NTk2MDcsImp0aSI6ImI3YWYyMzk4LTUyYmItNDcxZi1hZDE4LTk5NWNiZjEzYWFiYyJ9.W7kO5Nui-bgUEQfbkbMgSYlwS-S4oyFs67CWKJlpkcDDP2JaLGN-kcPTOMT5J1Y8dHPNPc6LVXvj7XO2FdGUBNACl1NoTzkhV8d-UJUqDbWWAWRLwc0-v2ZFsX9NAMuM1oy4CrDnWzo02IEgfaj-r80ClaqZcoT969IJ5UMan7F_WtBTN1Ps6jYdI3n8arlRKSXugjJttbgGzUIjBJDFRyEqooUfeQVLFl0sY-70Jw2C_Xr4ywQYxTYymBb_H3q8CjCmU_jX1vQfFeSZwJ7wriGgonhzj0AOiQoyDrXsk88G9WT2PpbcjpoXq1wnJvibfev7N3AQlAkbdsZ6osNOsg"
+// TODO: 이마트 수집 중 401 Unauthorized 에러가 발생하면 설정(Config) 파일이나 환경변수 수정을 통해 토큰을 교체해야 합니다.
 const emartApiKey = "da2-ua6i7vyww5cmjkqzwv6gwdqhly"
 
 type emartLectureSearchResultData struct {
@@ -166,11 +168,12 @@ type emartLectureGroupSearchResultData struct {
 	} `json:"data"`
 }
 
-func NewEmart(searchYear string) *Emart {
-	searchYear = strutil.NormalizeSpace(searchYear)
+func NewEmart(cfg scraper.Config) (*Emart, error) {
+	searchYear := strutil.NormalizeSpace(cfg.SearchYear)
+	authToken := cfg.EmartAuthToken
 
 	if searchYear == "" {
-		log.Fatalf("검색년도는 빈 문자열을 허용하지 않습니다(검색년도:%s)", searchYear)
+		return nil, fmt.Errorf("검색년도는 빈 문자열을 허용하지 않습니다(검색년도:%s)", searchYear)
 	}
 
 	return &Emart{
@@ -179,8 +182,9 @@ func NewEmart(searchYear string) *Emart {
 		cultureBaseUrl: "https://www.cultureclub.emart.com",
 
 		searchYearCode: searchYear,
-
 		searchSmstCode: "",
+		authToken:      authToken,
+		client:         scraper.NewClient(),
 
 		storeCodeMap: map[string]string{
 			"560": "여수",
@@ -193,94 +197,118 @@ func NewEmart(searchYear string) *Emart {
 			"404": "Kids & Children",
 			"406": "Kids & Children(event)",
 		},
-	}
+	}, nil
 }
 
-func (e *Emart) ScrapeCultureLectures(mainC chan<- []domain.Lecture) error {
-	log.Printf("%s 문화센터 강좌 수집을 시작합니다.", e.name)
-
+func (e *Emart) Validate(ctx context.Context) error {
 	// 강좌군이 유효한지 확인한다.
-	validLG, err := e.validCultureLectureGroup()
+	validLG, err := e.validCultureLectureGroup(ctx)
 	if err != nil {
 		return fmt.Errorf("%s 문화센터 강좌군 검증 중 오류 발생: %v", e.name, err)
 	}
 	if !validLG {
-		return fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(CSS셀렉터를 확인하세요, 강좌군코드 불일치)", e.name)
+		return fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(강좌군코드 불일치)", e.name)
 	}
 
-	var wait sync.WaitGroup
+	// 모든 점포가 유효한지 확인한다.
+	for storeCode, storeName := range e.storeCodeMap {
+		validStore, err := e.validCultureLectureStore(ctx, storeCode, storeName)
+		if err != nil {
+			return fmt.Errorf("%s 문화센터 점포 검증 중 오류 발생(점포코드:%s): %w", e.name, storeCode, err)
+		}
+		if !validStore {
+			return fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(점포코드 불일치:%s)", e.name, storeCode)
+		}
+	}
 
-	c := make(chan *domain.Lecture, 100)
+	return nil
+}
+
+func (e *Emart) ScrapeCultureLectures(ctx context.Context) ([]domain.Lecture, error) {
+
+	g, groupCtx := errgroup.WithContext(ctx)
+	g.SetLimit(5) // HTTP 요청 부하 분산을 위한 동시성 제한
+
+	var lectureList []domain.Lecture
+	var mu sync.Mutex
 
 	// 한번에 검색할 강좌 갯수
 	const sizeOfLectureToSearch = 20
 
 	var count int64 = 0
 	for storeCode, storeName := range e.storeCodeMap {
-		// 점포가 유효한지 확인한다.
-		validStore, err := e.validCultureLectureStore(storeCode, storeName)
-		if err != nil {
-			return fmt.Errorf("%s 문화센터 점포 검증 중 오류 발생(점포코드:%s): %v", e.name, storeCode, err)
-		}
-		if !validStore {
-			return fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(CSS셀렉터를 확인하세요, 점포코드 불일치:%s)", e.name, storeCode)
-		}
+		storeCode, storeName := storeCode, storeName
 
-		// 불러올 전체 강좌 갯수를 구한다.
-		lsrd, err := e.searchCultureLecture(storeCode, e.lectureGroupCodeMap, 0, sizeOfLectureToSearch)
-		if err != nil {
-			return fmt.Errorf("%s 문화센터(%s) 전체 강좌 갯수 검색 실패: %v", e.name, storeName, err)
-		}
-		if lsrd.Data.GetClassByFiltering.Total == 0 {
-			return fmt.Errorf("%s 문화센터(%s) 강좌를 수집하는 중에 전체 강좌 갯수 추출이 실패하였습니다.", e.name, storeName)
-		}
+		// 점포 단위 스크래핑을 백그라운드 태스크로 분리하여 컨텍스트 및 에러 관리를 errgroup 내에 둔다.
+		g.Go(func() error {
+			// 불러올 전체 강좌 갯수를 구한다.
+			lsrd, err := e.searchCultureLecture(groupCtx, storeCode, e.lectureGroupCodeMap, 0, sizeOfLectureToSearch)
+			if err != nil {
+				return fmt.Errorf("%s 문화센터(%s) 전체 강좌 갯수 검색 실패: %w", e.name, storeName, err)
+			}
+			if lsrd.Data.GetClassByFiltering.Total == 0 {
+				return fmt.Errorf("%s 문화센터(%s) 강좌를 수집하는 중에 전체 강좌 갯수 추출이 실패하였습니다.", e.name, storeName)
+			}
 
-		totalLectureCount := lsrd.Data.GetClassByFiltering.Total
+			totalLectureCount := lsrd.Data.GetClassByFiltering.Total
 
-		// 강좌 데이터를 수집한다.
-		for index := 0; index < totalLectureCount; {
-			wait.Add(1)
-			go func(storeCode0, storeName0 string, index0 int) {
-				defer wait.Done()
+			// 강좌 데이터를 수집한다. (동일 점포 내에서도 병렬로 요청)
+			var innerG *errgroup.Group
+			var innerCtx context.Context
+			// groupCtx가 취소되면 innerCtx도 같이 취소됨
+			innerG, innerCtx = errgroup.WithContext(groupCtx)
+			innerG.SetLimit(10) // 하위 요청(강좌 목록 페이징)에 대한 동시성 제한
 
-				lsrd0, err := e.searchCultureLecture(storeCode0, e.lectureGroupCodeMap, index0, sizeOfLectureToSearch)
-				if err != nil {
-					log.Fatalf("%s 문화센터(%s) 강좌 페이지 검색 실패(index:%d)로 종료합니다: %v", e.name, storeName0, index0, err)
+			for index := 0; index < totalLectureCount; {
+				if err := innerCtx.Err(); err != nil {
+					break
 				}
+				index0 := index
+				innerG.Go(func() error {
+					lsrd0, err := e.searchCultureLecture(innerCtx, storeCode, e.lectureGroupCodeMap, index0, sizeOfLectureToSearch)
+					if err != nil {
+						return fmt.Errorf("%s 문화센터(%s) 강좌 페이지 검색 실패(index:%d): %w", e.name, storeName, index0, err)
+					}
 
-				for _, lsrld := range lsrd0.Data.GetClassByFiltering.Data {
-					atomic.AddInt64(&count, 1)
-					go func(l emartLectureSearchResultLectureData) {
-						err := e.extractCultureLecture(storeName0, l, c)
+					var pageLectures []domain.Lecture
+					for _, lsrld := range lsrd0.Data.GetClassByFiltering.Data {
+						atomic.AddInt64(&count, 1)
+
+						lecture, err := e.extractCultureLecture(innerCtx, storeName, lsrld)
 						if err != nil {
-							log.Fatalf("%s 문화센터 추출 오류로 종료합니다: %v", e.name, err)
+							return fmt.Errorf("%s 문화센터 추출 오류: %w", e.name, err)
 						}
-					}(lsrld)
-				}
-			}(storeCode, storeName, index)
+						if lecture != nil {
+							pageLectures = append(pageLectures, *lecture)
+						}
+					}
 
-			index += sizeOfLectureToSearch
-		}
+					if len(pageLectures) > 0 {
+						mu.Lock()
+						lectureList = append(lectureList, pageLectures...)
+						mu.Unlock()
+					}
+					return nil
+				})
+
+				index += sizeOfLectureToSearch
+			}
+
+			if err := innerG.Wait(); err != nil {
+				return err
+			}
+			return nil
+		})
 	}
 
-	wait.Wait()
-
-	var lectureList []domain.Lecture
-	for i := int64(0); i < count; i++ {
-		lecture := <-c
-		if len(lecture.Title) > 0 {
-			lectureList = append(lectureList, *lecture)
-		}
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
-	log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. 총 %d개의 강좌가 수집되었습니다.", e.name, len(lectureList))
-
-	mainC <- lectureList
-
-	return nil
+	return lectureList, nil
 }
 
-func (e *Emart) searchCultureLecture(storeCode string, lectureGroupCodeMap map[string]string, startIndex, size int) (*emartLectureSearchResultData, error) {
+func (e *Emart) searchCultureLecture(ctx context.Context, storeCode string, lectureGroupCodeMap map[string]string, startIndex, size int) (*emartLectureSearchResultData, error) {
 	// 불러올 강좌군 코드 목록을 생성한다.
 	lectureGroupCodeString := ""
 	for code := range lectureGroupCodeMap {
@@ -291,7 +319,7 @@ func (e *Emart) searchCultureLecture(storeCode string, lectureGroupCodeMap map[s
 	}
 
 	var lsrd emartLectureSearchResultData
-	err := e.requestSite(fmt.Sprintf("{\"query\":\"query getClassByFiltering($keyword: String, $filterData: [FilterData], $sortKey: String, $from: Int, $size: Int) {\\n  getClassByFiltering(keyword: $keyword, filterData: $filterData, sortKey: $sortKey, from: $from, size: $size) {\\n    total\\n    data {\\n      PK\\n      SK\\n      instructorId\\n      classId\\n      initialClassId\\n      classStatus\\n      classStatusBO\\n      classStatusTeacher\\n      classFlag\\n      classTitle\\n      classDay\\n      classTime {\\n        startTime\\n        endTime\\n      }\\n      mainCategory {\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n      }\\n      subCategory {\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n      }\\n      mainStoreInfo {\\n        storeName\\n        storeCode\\n        storeCenter\\n      }\\n      storeInfo\\n      classroom\\n      minClassCapacity\\n      classCapacity\\n      classTimes\\n      semesterYear\\n      semester\\n      classOriginalFee\\n      classFee\\n      classMaterialFee\\n      classType\\n      channel {\\n        online\\n        offline\\n      }\\n      classDateInfo {\\n        classStartDate\\n        classEndDate\\n        classClosedDate\\n        classRegisterStartDate\\n        classRegisterEndDate\\n        classCancelStartDate\\n        classCancelEndDate\\n      }\\n      classDetail {\\n        classDetailInfo {\\n          classDetailInfoTitle\\n          classDetailInfoContent\\n        }\\n      }\\n      mainImage {\\n        bucket\\n        region\\n        key\\n      }\\n      categoryImage {\\n        bucket\\n        region\\n        key\\n      }\\n      materialCalculate {\\n        materialFee\\n      }\\n    }\\n  }\\n}\\n\",\"variables\":{\"keyword\":\"\",\"filterData\":[{\"type\":\"mainStoreInfo.storeCode\",\"data\":[\"%s\"]},{\"type\":\"subCategory\",\"data\":[%s]}],\"sortKey\":\"deadline\",\"from\":%d,\"size\":%d}}", storeCode, lectureGroupCodeString, startIndex, size), &lsrd)
+	err := e.requestSite(ctx, fmt.Sprintf("{\"query\":\"query getClassByFiltering($keyword: String, $filterData: [FilterData], $sortKey: String, $from: Int, $size: Int) {\\n  getClassByFiltering(keyword: $keyword, filterData: $filterData, sortKey: $sortKey, from: $from, size: $size) {\\n    total\\n    data {\\n      PK\\n      SK\\n      instructorId\\n      classId\\n      initialClassId\\n      classStatus\\n      classStatusBO\\n      classStatusTeacher\\n      classFlag\\n      classTitle\\n      classDay\\n      classTime {\\n        startTime\\n        endTime\\n      }\\n      mainCategory {\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n      }\\n      subCategory {\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n      }\\n      mainStoreInfo {\\n        storeName\\n        storeCode\\n        storeCenter\\n      }\\n      storeInfo\\n      classroom\\n      minClassCapacity\\n      classCapacity\\n      classTimes\\n      semesterYear\\n      semester\\n      classOriginalFee\\n      classFee\\n      classMaterialFee\\n      classType\\n      channel {\\n        online\\n        offline\\n      }\\n      classDateInfo {\\n        classStartDate\\n        classEndDate\\n        classClosedDate\\n        classRegisterStartDate\\n        classRegisterEndDate\\n        classCancelStartDate\\n        classCancelEndDate\\n      }\\n      classDetail {\\n        classDetailInfo {\\n          classDetailInfoTitle\\n          classDetailInfoContent\\n        }\\n      }\\n      mainImage {\\n        bucket\\n        region\\n        key\\n      }\\n      categoryImage {\\n        bucket\\n        region\\n        key\\n      }\\n      materialCalculate {\\n        materialFee\\n      }\\n    }\\n  }\\n}\\n\",\"variables\":{\"keyword\":\"\",\"filterData\":[{\"type\":\"mainStoreInfo.storeCode\",\"data\":[\"%s\"]},{\"type\":\"subCategory\",\"data\":[%s]}],\"sortKey\":\"deadline\",\"from\":%d,\"size\":%d}}", storeCode, lectureGroupCodeString, startIndex, size), &lsrd)
 	if err != nil {
 		return nil, err
 	}
@@ -299,36 +327,40 @@ func (e *Emart) searchCultureLecture(storeCode string, lectureGroupCodeMap map[s
 	return &lsrd, nil
 }
 
-func (e *Emart) extractCultureLecture(storeName string, lsrld emartLectureSearchResultLectureData, c chan<- *domain.Lecture) error {
+func (e *Emart) getDetailPageURL(classID string) string {
+	return fmt.Sprintf("%s/class/%s", e.cultureBaseUrl, classID)
+}
+
+func (e *Emart) extractCultureLecture(ctx context.Context, storeName string, lsrld emartLectureSearchResultLectureData) (*domain.Lecture, error) {
 	// 개강일
 	startDate := lsrld.ClassDateInfo.ClassStartDate
 	if len(startDate) != 8 {
-		return fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(개강일:%s)", e.name, storeName, startDate)
+		return nil, fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(개강일 파싱, URL:%s)", e.name, e.getDetailPageURL(lsrld.ClassID))
 	}
-	startDate = fmt.Sprintf("%s-%s-%s", startDate[:4], startDate[4:6], startDate[6:])
+	startDate = fmt.Sprintf("%s-%s-%s", startDate[0:4], startDate[4:6], startDate[6:8])
 
 	// 시작시간, 종료시간
 	startTime := lsrld.ClassTime.StartTime
 	endTime := lsrld.ClassTime.EndTime
 	if len(startTime) != 4 || len(endTime) != 4 {
-		return fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(시작시간:%s, 종료시간:%s)", e.name, storeName, startTime, endTime)
+		return nil, fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(시간 파싱, URL:%s)", e.name, e.getDetailPageURL(lsrld.ClassID))
 	}
 	startTime = fmt.Sprintf("%s:%s", startTime[:2], startTime[2:])
 	endTime = fmt.Sprintf("%s:%s", endTime[:2], endTime[2:])
 
 	// 요일
 	if len(lsrld.ClassDay) == 0 {
-		return fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(요일이 없음)", e.name, storeName)
+		return nil, fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(요일이 없음)", e.name, storeName)
 	}
 	dayOfTheWeek := lsrld.ClassDay[0]
 	if len(dayOfTheWeek) == 0 {
-		return fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(요일:%s)", e.name, storeName, dayOfTheWeek)
+		return nil, fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(요일:%s)", e.name, storeName, dayOfTheWeek)
 	}
 
 	// 강좌횟수
 	count := fmt.Sprintf("%d", lsrld.ClassTimes)
 	if len(count) == 0 {
-		return fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(강좌 횟수:%s)", e.name, storeName, count)
+		return nil, fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(강좌 횟수:%s)", e.name, storeName, count)
 	}
 
 	// 접수상태
@@ -339,33 +371,40 @@ func (e *Emart) extractCultureLecture(storeName string, lsrld emartLectureSearch
 	case "접수마감", "정원마감":
 		status = domain.ReceptionStatusClosed
 	case "접수대기":
-		status = domain.ReceptionStatusStnadBy
+		status = domain.ReceptionStatusStandBy
 	default:
-		return fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(%s)", e.name, storeName, lsrld.ClassStatus)
+		return nil, fmt.Errorf("%s 문화센터(%s) 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(%s)", e.name, storeName, lsrld.ClassStatus)
 	}
 
-	c <- &domain.Lecture{
-		StoreName:      fmt.Sprintf("%s %s", e.name, storeName),
-		Group:          "",
-		Title:          lsrld.ClassTitle,
-		Teacher:        "",
-		StartDate:      startDate,
-		StartTime:      startTime,
-		EndTime:        endTime,
-		DayOfTheWeek:   dayOfTheWeek + "요일",
-		Price:          fmt.Sprintf("%d", lsrld.ClassFee),
-		Count:          count,
-		Status:         status,
-		DetailPageUrl:  fmt.Sprintf("%s/class/%s", e.cultureBaseUrl, lsrld.ClassID),
-		ScrapeExcluded: false,
+	if len(lsrld.ClassTitle) == 0 {
+		return nil, nil
 	}
 
-	return nil
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		return &domain.Lecture{
+			StoreName:      fmt.Sprintf("%s %s", e.name, storeName),
+			Group:          "",
+			Title:          lsrld.ClassTitle,
+			Teacher:        "",
+			StartDate:      startDate,
+			StartTime:      startTime,
+			EndTime:        endTime,
+			DayOfTheWeek:   dayOfTheWeek + "요일",
+			Price:          fmt.Sprintf("%d", lsrld.ClassFee),
+			Count:          count,
+			Status:         status,
+			DetailPageUrl:  e.getDetailPageURL(lsrld.ClassID),
+			ScrapeExcluded: false,
+		}, nil
+	}
 }
 
-func (e *Emart) validCultureLectureStore(storeCode, storeName string) (bool, error) {
+func (e *Emart) validCultureLectureStore(ctx context.Context, storeCode, storeName string) (bool, error) {
 	var ssrd emartStoreSearchResultData
-	err := e.requestSite("{\"query\":\"query getStoreAreaList($isAll: Boolean!) {\\n  getStoreAreaList(isAll: $isAll) {\\n    PK\\n    area\\n    storeListInfo {\\n      storeName\\n      storeCode\\n      storeCenter\\n    }\\n  }\\n}\\n\",\"variables\":{\"isAll\":false}}", &ssrd)
+	err := e.requestSite(ctx, "{\"query\":\"query getStoreAreaList($isAll: Boolean!) {\\n  getStoreAreaList(isAll: $isAll) {\\n    PK\\n    area\\n    storeListInfo {\\n      storeName\\n      storeCode\\n      storeCenter\\n    }\\n  }\\n}\\n\",\"variables\":{\"isAll\":false}}", &ssrd)
 	if err != nil {
 		return false, err
 	}
@@ -381,9 +420,9 @@ func (e *Emart) validCultureLectureStore(storeCode, storeName string) (bool, err
 	return false, nil
 }
 
-func (e *Emart) validCultureLectureGroup() (bool, error) {
+func (e *Emart) validCultureLectureGroup(ctx context.Context) (bool, error) {
 	var lgsrd emartLectureGroupSearchResultData
-	err := e.requestSite("{\"query\":\"query getCategoryList {\\n  getCategoryList {\\n    message {\\n      mainCategory {\\n        PK\\n        SK\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n        useFlag\\n        iconFileName\\n      }\\n      subCategory {\\n        PK\\n        SK\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n        useFlag\\n        iconFileName\\n        mainDisplayFlag\\n        iconFilePath {\\n          bucket\\n          filename\\n          key\\n          region\\n        }\\n      }\\n    }\\n  }\\n}\\n\",\"variables\":{}}", &lgsrd)
+	err := e.requestSite(ctx, "{\"query\":\"query getCategoryList {\\n  getCategoryList {\\n    message {\\n      mainCategory {\\n        PK\\n        SK\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n        useFlag\\n        iconFileName\\n      }\\n      subCategory {\\n        PK\\n        SK\\n        mainCategoryOrder\\n        subCategoryOrder\\n        categoryCode\\n        categoryName\\n        useFlag\\n        iconFileName\\n        mainDisplayFlag\\n        iconFilePath {\\n          bucket\\n          filename\\n          key\\n          region\\n        }\\n      }\\n    }\\n  }\\n}\\n\",\"variables\":{}}", &lgsrd)
 	if err != nil {
 		return false, err
 	}
@@ -410,43 +449,23 @@ func (e *Emart) validCultureLectureGroup() (bool, error) {
 	return true, nil
 }
 
-func (e *Emart) requestSite(body string, v interface{}) error {
+func (e *Emart) requestSite(ctx context.Context, body string, v interface{}) error {
 	clPageUrl := "https://o27tfdumlrbf7jmrvql76qbhsm.appsync-api.ap-northeast-2.amazonaws.com/graphql"
 
-	req, err := http.NewRequest("POST", clPageUrl, bytes.NewBufferString(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", clPageUrl, bytes.NewBufferString(body))
 	if err != nil {
-		return fmt.Errorf("http.NewRequest failed: %v", err)
+		return fmt.Errorf("http.NewRequestWithContext failed: %w", err)
 	}
 
-	req.Header.Set("Authorization", emartAuthToken)
+	req.Header.Add("authorization", e.authToken)
 	req.Header.Set("origin", e.cultureBaseUrl)
 	req.Header.Set("referer", e.cultureBaseUrl)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36")
 	req.Header.Set("x-amz-user-agent", "aws-amplify/3.8.14 js")
 	req.Header.Set("x-api-key", emartApiKey)
 
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("client.Do failed: %v", err)
-	}
-
-	if res.StatusCode != 200 {
-		return fmt.Errorf("Request failed with Status: %d", res.StatusCode)
-	}
-
-	//goland:noinspection GoUnhandledErrorResult
-	defer res.Body.Close()
-
-	resBodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return fmt.Errorf("io.ReadAll failed: %v", err)
-	}
-
-	err = json.Unmarshal(resBodyBytes, v)
-	if err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %v", err)
+	if err := e.client.FetchJSON(req, v); err != nil {
+		return fmt.Errorf("이마트 API 요청 실패: %w", err)
 	}
 
 	return nil

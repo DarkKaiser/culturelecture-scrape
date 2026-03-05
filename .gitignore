@@ -20,5 +20,6 @@ logs/
 # .idea 폴더
 .idea/
 
-bin/
+# 결과 파일
+culturelecture-scrape.xlsx
 culturelecture-scrape-*.csv
