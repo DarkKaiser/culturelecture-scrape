@@ -22,11 +22,14 @@ type Emart struct {
 	searchYearCode string // 검색년도
 	searchSmstCode string // 검색시즌 코드(미사용)
 	authToken      string // 외부 주입 이마트 API 토큰
-	client         *scraper.Client
+	client         *scraper.Fetcher
 
 	storeCodeMap        map[string]string // 점포
 	lectureGroupCodeMap map[string]string // 강좌군
 }
+
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
+var _ scraper.Scraper = (*Emart)(nil)
 
 // TODO: 이마트 수집 중 401 Unauthorized 에러가 발생하면 설정(Config) 파일이나 환경변수 수정을 통해 토큰을 교체해야 합니다.
 const emartApiKey = "da2-ua6i7vyww5cmjkqzwv6gwdqhly"
@@ -168,9 +171,8 @@ type emartLectureGroupSearchResultData struct {
 	} `json:"data"`
 }
 
-func NewEmart(cfg scraper.Config) (*Emart, error) {
-	searchYear := strutil.NormalizeSpace(cfg.SearchYear)
-	authToken := cfg.EmartAuthToken
+func NewEmart(criteria scraper.SearchCriteria, authToken string) (*Emart, error) {
+	searchYear := strutil.NormalizeSpace(criteria.SearchYear)
 
 	if searchYear == "" {
 		return nil, fmt.Errorf("검색년도는 빈 문자열을 허용하지 않습니다(검색년도:%s)", searchYear)
@@ -184,7 +186,7 @@ func NewEmart(cfg scraper.Config) (*Emart, error) {
 		searchYearCode: searchYear,
 		searchSmstCode: "",
 		authToken:      authToken,
-		client:         scraper.NewClient(),
+		client:         scraper.NewFetcher(),
 
 		storeCodeMap: map[string]string{
 			"560": "여수",
@@ -224,7 +226,7 @@ func (e *Emart) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (e *Emart) ScrapeCultureLectures(ctx context.Context) ([]domain.Lecture, error) {
+func (e *Emart) Scrape(ctx context.Context) ([]domain.Lecture, error) {
 
 	g, groupCtx := errgroup.WithContext(ctx)
 	g.SetLimit(5) // HTTP 요청 부하 분산을 위한 동시성 제한

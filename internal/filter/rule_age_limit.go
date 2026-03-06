@@ -117,7 +117,7 @@ type AgeLimitRule struct {
 	studentAge    int // 수강생의 나이(세)
 }
 
-// 컴파일 타임에 AgeLimitRule이 Rule 인터페이스를 올바르게 구현하는지 검증합니다.
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
 var _ Rule = (*AgeLimitRule)(nil)
 
 // NewAgeLimitRule AgeLimitRule을 생성합니다.

@@ -106,12 +106,11 @@ func run(args []string, mockScrapers ...scraper.Scraper) error {
 		emartAuthToken = p["auth_token"]
 	}
 
-	// 이후 수집기들을 생성할 때 필요한 수집 조건(검색 연도, 시즌, 토큰 등)들을 하나의 Config 객체로 모아둡니다.
-	scraperCfg := scraper.Config{
+	// 이후 수집기들을 생성할 때 필요한 수집 조건(검색 연도, 시즌 등)들을 하나의 SearchCriteria 객체로 모아둡니다.
+	scraperCriteria := scraper.SearchCriteria{
 		SearchYear:       searchYear,
 		SearchSeason:     searchSeason,
 		SearchSeasonCode: searchSeasonCode,
-		EmartAuthToken:   emartAuthToken,
 	}
 
 	// ------------------------------------------------------------------
@@ -122,17 +121,17 @@ func run(args []string, mockScrapers ...scraper.Scraper) error {
 	if len(mockScrapers) > 0 {
 		scrapers = mockScrapers
 	} else {
-		hp, err := provider.NewHomeplus(scraperCfg)
+		hp, err := provider.NewHomeplus(scraperCriteria)
 		if err != nil {
 			return fmt.Errorf("초기화 오류: 홈플러스 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
 		}
 
-		lm, err := provider.NewLottemart(scraperCfg)
+		lm, err := provider.NewLottemart(scraperCriteria)
 		if err != nil {
 			return fmt.Errorf("초기화 오류: 롯데마트 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
 		}
 
-		em, err := provider.NewEmart(scraperCfg)
+		em, err := provider.NewEmart(scraperCriteria, emartAuthToken)
 		if err != nil {
 			return fmt.Errorf("초기화 오류: 이마트 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
 		}

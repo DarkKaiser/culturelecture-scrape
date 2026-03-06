@@ -33,15 +33,18 @@ type Lottemart struct {
 	cultureBaseUrl string
 
 	searchTermCode string // 검색년도 & 검색시즌 코드
-	client         *scraper.Client
+	client         *scraper.Fetcher
 
 	storeCodeMap        map[string]string            // 점포
 	lectureGroupCodeMap map[string]map[string]string // 강좌군
 }
 
-func NewLottemart(cfg scraper.Config) (*Lottemart, error) {
-	searchYear := strutil.NormalizeSpace(cfg.SearchYear)
-	searchSeasonCode := strutil.NormalizeSpace(cfg.SearchSeasonCode)
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
+var _ scraper.Scraper = (*Lottemart)(nil)
+
+func NewLottemart(criteria scraper.SearchCriteria) (*Lottemart, error) {
+	searchYear := strutil.NormalizeSpace(criteria.SearchYear)
+	searchSeasonCode := strutil.NormalizeSpace(criteria.SearchSeasonCode)
 
 	if searchYear == "" || searchSeasonCode == "" {
 		return nil, fmt.Errorf("검색년도 및 검색시즌코드는 빈 문자열을 허용하지 않습니다(검색년도:%s, 검색시즌코드:%s)", searchYear, searchSeasonCode)
@@ -53,7 +56,7 @@ func NewLottemart(cfg scraper.Config) (*Lottemart, error) {
 		cultureBaseUrl: "https://culture.lottemart.com",
 
 		searchTermCode: fmt.Sprintf("%s0%s", searchYear, searchSeasonCode),
-		client:         scraper.NewClient(),
+		client:         scraper.NewFetcher(),
 
 		storeCodeMap: map[string]string{
 			"705": "여수점",
@@ -123,7 +126,7 @@ func (l *Lottemart) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (l *Lottemart) ScrapeCultureLectures(ctx context.Context) ([]domain.Lecture, error) {
+func (l *Lottemart) Scrape(ctx context.Context) ([]domain.Lecture, error) {
 
 	g, groupCtx := errgroup.WithContext(ctx)
 	g.SetLimit(5) // HTTP 요청 부하 분산을 위한 동시성 제한
@@ -389,7 +392,7 @@ func (l *Lottemart) validCultureLectureStore(ctx context.Context, storeCode, sto
 		return false, fmt.Errorf("http.NewRequestWithContext failed: %w", err)
 	}
 
-	doc, err := l.client.FetchGoQuery(req)
+	doc, err := l.client.FetchHTML(req)
 	if err != nil {
 		return false, err
 	}
@@ -408,7 +411,7 @@ func (l *Lottemart) validCultureLectureGroup(ctx context.Context) (bool, error) 
 		return false, fmt.Errorf("http.NewRequestWithContext failed: %w", err)
 	}
 
-	doc, err := l.client.FetchGoQuery(req)
+	doc, err := l.client.FetchHTML(req)
 	if err != nil {
 		return false, err
 	}

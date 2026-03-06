@@ -36,11 +36,14 @@ const homeplusLectureSearchPageSize = 20
 type Homeplus struct {
 	name           string
 	cultureBaseUrl string
-	client         *scraper.Client
+	client         *scraper.Fetcher
 
 	storeCodeMap        map[string]string // 점포
 	lectureGroupCodeMap map[string]string // 강좌군
 }
+
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
+var _ scraper.Scraper = (*Homeplus)(nil)
 
 type homeplusStoreSearchResult struct {
 	RstCode    int    `json:"RstCode"`
@@ -81,12 +84,12 @@ type homeplusStoreSearchResult struct {
 	} `json:"Data"`
 }
 
-func NewHomeplus(cfg scraper.Config) (*Homeplus, error) {
+func NewHomeplus(criteria scraper.SearchCriteria) (*Homeplus, error) {
 	return &Homeplus{
 		name: "홈플러스",
 
 		cultureBaseUrl: "https://mschool.homeplus.co.kr",
-		client:         scraper.NewClient(),
+		client:         scraper.NewFetcher(),
 
 		storeCodeMap: map[string]string{
 			"0035": "광양점",
@@ -120,7 +123,7 @@ func (h *Homeplus) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (h *Homeplus) ScrapeCultureLectures(ctx context.Context) ([]domain.Lecture, error) {
+func (h *Homeplus) Scrape(ctx context.Context) ([]domain.Lecture, error) {
 
 	g, groupCtx := errgroup.WithContext(ctx)
 	g.SetLimit(5) // HTTP 요청 부하 분산을 위한 동시성 제한
@@ -236,7 +239,7 @@ func (h *Homeplus) cultureLecturePageDocument(ctx context.Context, pageNo int, s
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 
-	doc, err := h.client.FetchGoQuery(req)
+	doc, err := h.client.FetchHTML(req)
 	if err != nil {
 		return "", nil, fmt.Errorf("%s 문화센터 요청 실패: %w", h.name, err)
 	}
@@ -445,7 +448,7 @@ func (h *Homeplus) validCultureLectureGroup(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("http.NewRequestWithContext failed: %w", err)
 	}
 
-	doc, err := h.client.FetchGoQuery(req)
+	doc, err := h.client.FetchHTML(req)
 	if err != nil {
 		return false, err
 	}
