@@ -298,11 +298,11 @@ func (l *Lottemart) extractCultureLecture(ctx context.Context, clPageUrl string,
 	case "대기자 신청":
 		status = domain.ReceptionStatusStandBy
 	case "현장문의":
-		status = domain.ReceptionStatusVisitInquiry
+		status = domain.ReceptionStatusOnsiteInquiry
 	case "전화문의":
-		status = domain.ReceptionStatusTellInquiry
+		status = domain.ReceptionStatusPhoneInquiry
 	case "현장접수":
-		status = domain.ReceptionStatusVisitInquiry
+		status = domain.ReceptionStatusOnsiteInquiry
 	default:
 		return nil, fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", l.name, lectureCol5, clPageUrl)
 	}
@@ -327,17 +327,17 @@ func (l *Lottemart) extractCultureLecture(ctx context.Context, clPageUrl string,
 
 	return &domain.Lecture{
 		StoreName:      fmt.Sprintf("%s %s", l.name, storeName),
-		Group:          "",
+		Category:       "",
 		Title:          title,
-		Teacher:        lectureCol2,
+		Instructor:     lectureCol2,
 		StartDate:      startDate,
 		StartTime:      startTime,
 		EndTime:        endTime,
-		DayOfTheWeek:   dayOfTheWeek + "요일",
+		Weekday:        dayOfTheWeek + "요일",
 		Price:          price,
-		Count:          count,
+		SessionCount:   count,
 		Status:         status,
-		DetailPageUrl:  l.getDetailPageURL(classCode, storeCode),
+		DetailPageURL:  l.getDetailPageURL(classCode, storeCode),
 		ScrapeExcluded: false,
 	}, nil
 }

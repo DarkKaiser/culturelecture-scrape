@@ -367,9 +367,9 @@ func (h *Homeplus) extractCultureLecture(ctx context.Context, clPageUrl string, 
 		if classCartStatus == "마감" {
 			status = domain.ReceptionStatusClosed
 		} else if classCartStatus == "방문" {
-			status = domain.ReceptionStatusVisitConsultation
+			status = domain.ReceptionStatusOnsiteConsultation
 		} else if classCartStatus == "문의" {
-			status = domain.ReceptionStatusVisitInquiry
+			status = domain.ReceptionStatusOnsiteInquiry
 		} else {
 			return nil, fmt.Errorf("%s 문화센터 강좌 데이터 파싱이 실패하였습니다(지원하지 않는 접수상태입니다(분석데이터:%s, URL:%s)", h.name, classCartImgUrl, clPageUrl)
 		}
@@ -395,17 +395,17 @@ func (h *Homeplus) extractCultureLecture(ctx context.Context, clPageUrl string, 
 
 	return &domain.Lecture{
 		StoreName:      fmt.Sprintf("%s %s", h.name, storeName),
-		Group:          group,
+		Category:       group,
 		Title:          title,
-		Teacher:        teacher,
+		Instructor:     teacher,
 		StartDate:      startDate,
 		StartTime:      startTime,
 		EndTime:        endTime,
-		DayOfTheWeek:   fmt.Sprintf("%s요일", dayOfTheWeek),
+		Weekday:        fmt.Sprintf("%s요일", dayOfTheWeek),
 		Price:          price,
-		Count:          count,
+		SessionCount:   count,
 		Status:         status,
-		DetailPageUrl:  h.getDetailPageURL(lectureMasterId),
+		DetailPageURL:  h.getDetailPageURL(lectureMasterId),
 		ScrapeExcluded: false,
 	}, nil
 }

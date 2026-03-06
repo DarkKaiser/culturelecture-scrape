@@ -386,17 +386,17 @@ func (e *Emart) extractCultureLecture(ctx context.Context, storeName string, lsr
 	default:
 		return &domain.Lecture{
 			StoreName:      fmt.Sprintf("%s %s", e.name, storeName),
-			Group:          "",
+			Category:       "",
 			Title:          lsrld.ClassTitle,
-			Teacher:        "",
+			Instructor:     "",
 			StartDate:      startDate,
 			StartTime:      startTime,
 			EndTime:        endTime,
-			DayOfTheWeek:   dayOfTheWeek + "요일",
+			Weekday:        dayOfTheWeek + "요일",
 			Price:          fmt.Sprintf("%d", lsrld.ClassFee),
-			Count:          count,
+			SessionCount:   count,
 			Status:         status,
-			DetailPageUrl:  e.getDetailPageURL(lsrld.ClassID),
+			DetailPageURL:  e.getDetailPageURL(lsrld.ClassID),
 			ScrapeExcluded: false,
 		}, nil
 	}
