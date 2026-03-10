@@ -1,35 +1,48 @@
-# culturelecture-scrape 설정 파일
-# 이 파일에서 강좌 검색 조건, 수강생 정보, 휴일 목록 등을 설정합니다.
+# ===================================================================
+# CultureLecture Scraper 통합 설정 파일
+# ===================================================================
+# 이마트, 홈플러스, 롯데마트 문화센터의 강좌 정보를 수집하기 위한
+# 공통 검색 조건, 수강생 정보, 휴일 및 각 마트별 특수 설정을 관리합니다.
+# ===================================================================
 
 # -------------------------------------------------------------------
-# 1. 검색 대상 설정 (Search Target Configuration)
+# 1. 공통 검색 조건
 # -------------------------------------------------------------------
-# 검색할 연도 (예: "2026")
+# 강좌를 검색할 기준 연도를 입력합니다. (필수 기입)
 search_year: "2026"
-# 검색할 학기/시즌 (예: "봄", "여름", "가을", "겨울")
+
+# 검색할 학기(시즌)를 입력합니다. (필수 기입)
+# - 이 값이 롯데마트 등의 학기 코드(1:봄, 2:여름, 3:가을, 4:겨울) 계산에 활용됩니다.
+# - 입력 가능 값: "봄", "여름", "가을", "겨울"
 search_season: "봄"
 
 # -------------------------------------------------------------------
-# 2. 수강생 정보 (Student Information)
+# 2. 수강생 정보
 # -------------------------------------------------------------------
-# 수강생의 생년월일 (이 정보를 바탕으로 나이와 개월수를 자동으로 계산합니다)
+# 수강생의 생년월일을 입력합니다.
+# 스크래퍼가 이 정보를 바탕으로 수집 시점의 정확한 '나이'와 '개월 수'를 자동 계산하여,
+# 수강 조건에 맞지 않는 강좌를 필터링하는 데 사용합니다.
 student:
-  birth_year: 2016
-  birth_month: 3
-  birth_day: 18
+  birth_year: 2016 # 태어난 연도 (예: 2016)
+  birth_month: 3 # 태어난 월 (1~12)
+  birth_day: 18 # 태어난 일 (1~31)
 
 # -------------------------------------------------------------------
-# 3. 휴일/공휴일 설정 (Holidays)
+# 3. 휴일 지정
 # -------------------------------------------------------------------
-# 평일 임에도 주말과 동일하게 수강 가능한 날짜들 (YYYY-MM-DD 형식)
+# 기본적으로 주말(토, 일) 강좌를 우선 수집하지만, 사용자가 지정한 공휴일이나
+# 쉬는 날(평일)에도 주말과 동일하게 수강이 가능하다고 판단하여 수집 대상에 포함시킵니다.
+# - 형식: "YYYY-MM-DD" 형태의 리스트
 holidays:
-  - "2024-01-01"
+  - "2024-01-01" # 신정
 
 # -------------------------------------------------------------------
-# 4. API 인증 정보 (Authentication)
+# 4. 프로바이더별 특수 설정
 # -------------------------------------------------------------------
-# 각 문화센터별 특수한 인증 정보나 설정값을 관리합니다.
+# 각 문화센터 스크래핑에 필요한 고유한 API 인증 정보나 토큰을 관리합니다.
 providers:
   emart:
-    # 이마트 문화센터 스크래핑에 필요한 인증 토큰 (세션 만료 시 업데이트 필요)
+    # GraphQL API 접근을 위한 Bearer 토큰입니다.
+    # 브라우저 개발자 도구(F12)의 Network 탭에서 'authorization' 헤더 값을 복사하여 붙여넣으세요.
+    # 토큰은 일정 시간이 지나면 만료되므로 401 Unauthorized 에러 발생 시 업데이트해야 합니다.
     auth_token: "eyJraWQiOiJMdmZXelNObFM0WEFTU2RJcytiYXJlNHl6VWNyVmNWRExqcHQyanBDNlE0PSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmODU2YjQxNy0wMjQ4LTQ3ZmQtYTM5Ni01OGE2NDczODA3YjUiLCJiaXJ0aGRhdGUiOiIxOTc4LTA2LTE2IiwiY3VzdG9tOm1icktleSI6ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpqZEcwaU9pSkRNREF3TURBd05DSXNJbk5wWkNJNkltVnRZWEowWTNWc2RDSXNJbUYxWkNJNklrRlFVQ0lzSW5WcFpDSTZJbHd2WlJaMk1VMDJSM1JJYUhOU2NYSXdaMVZTZG14blBUMGlMQ0psZUhBaU9qRTJOVEk0TURJNE1EWXNJbWx6Y3lJNklrTnNkV1JOWlcxaVpYSnphR2x3SWl3aWFtRjBJam94TmpVeU56VTVOakEyTENKcWRHa2lGhZTM4ZjBGMjQwTmh3In0.Pz13rX6rB8g..."
