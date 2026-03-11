@@ -12,9 +12,9 @@ import (
 	"github.com/darkkaiser/culturelecture-scrape/internal/scraper"
 )
 
-// setupMockServer는 테스트용 로컬 HTTP 서버와 해당 서버를 바라보도록 설정된 Homeplus 인스턴스를 반환합니다.
+// setupHomeplusMockServer는 테스트용 로컬 HTTP 서버와 해당 서버를 바라보도록 설정된 Homeplus 인스턴스를 반환합니다.
 // 반환된 서버는 테스트 종료 시 반드시 Close()를 호출해야 합니다.
-func setupMockServer(handler http.HandlerFunc) (*httptest.Server, *Homeplus) {
+func setupHomeplusMockServer(handler http.HandlerFunc) (*httptest.Server, *Homeplus) {
 	ts := httptest.NewServer(handler)
 
 	h, _ := NewHomeplus(scraper.SearchCriteria{
@@ -53,6 +53,13 @@ func TestNewHomeplus(t *testing.T) {
 
 	if len(h.lectureGroups) == 0 {
 		t.Error("NewHomeplus() 수집 대상 강좌군 목록이 비어 있습니다.")
+	}
+}
+
+func TestHomeplus_Name(t *testing.T) {
+	h, _ := NewHomeplus(scraper.SearchCriteria{SearchYear: "2024", SearchSeasonCode: "1"})
+	if h.Name() != "홈플러스" {
+		t.Errorf("Homeplus.Name() = %v, want %v", h.Name(), "홈플러스")
 	}
 }
 
@@ -138,7 +145,7 @@ func TestHomeplus_validateStores(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts, h := setupMockServer(tt.handler)
+			ts, h := setupHomeplusMockServer(tt.handler)
 			defer ts.Close()
 
 			h.stores = tt.stores // 테스트용 점포 데이터 주입
@@ -263,7 +270,7 @@ func TestHomeplus_validateLectureGroups(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts, h := setupMockServer(tt.handler)
+			ts, h := setupHomeplusMockServer(tt.handler)
 			defer ts.Close()
 
 			h.lectureGroups = tt.lectureGroups // 테스트 데이터 주입
@@ -345,7 +352,7 @@ func TestHomeplus_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts, h := setupMockServer(tt.handler)
+			ts, h := setupHomeplusMockServer(tt.handler)
 			defer ts.Close()
 
 			h.stores = tt.stores
@@ -360,7 +367,7 @@ func TestHomeplus_Validate(t *testing.T) {
 }
 
 func TestHomeplus_fetchSearchPage(t *testing.T) {
-	ts, h := setupMockServer(func(w http.ResponseWriter, r *http.Request) {
+	ts, h := setupHomeplusMockServer(func(w http.ResponseWriter, r *http.Request) {
 		// 요청 파라미터(Form) 검증
 		r.ParseForm()
 		if r.Form.Get("page") != "1" {
@@ -399,9 +406,7 @@ func TestHomeplus_fetchSearchPage(t *testing.T) {
 }
 
 func TestHomeplus_Scrape(t *testing.T) {
-	// Scrape()는 사전 단계(전체 페이지 수 조회) -> 병렬 데이터 수집 단계를 거칩니다.
-	// 이 복합 흐름을 모킹하기 위해 요청된 페이지가 무엇인지에 따라 응답을 다르게 처리합니다.
-	ts, h := setupMockServer(func(w http.ResponseWriter, r *http.Request) {
+	ts, h := setupHomeplusMockServer(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 

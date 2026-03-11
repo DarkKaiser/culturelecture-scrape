@@ -17,6 +17,8 @@ func Filter(lectures []domain.Lecture, studentMonths, studentAge int, holidays [
 		NewAgeLimitRule(studentMonths, studentAge), // 대상 연령이 맞지 않는 강좌 제외
 	}
 
+	log.Println("수집된 강좌 데이터에 대한 필터링 작업을 시작합니다.")
+
 	// 2. 강좌별 규칙 적용
 	for i := range lectures {
 		// 이전 단계(다른 처리기)에서 이미 제외 처리된 강좌라면, 추가 필터링 없이 건너뜁니다.
@@ -43,5 +45,5 @@ func Filter(lectures []domain.Lecture, studentMonths, studentAge int, holidays [
 		}
 	}
 
-	log.Printf("[필터링 완료] 전체 강좌 수: %d건 | 필터링 제외 대상: %d건", len(lectures), excludedCount)
+	log.Printf("필터링 작업이 모두 완료되었습니다. (전체 강좌: %d건, 남은 강좌: %d건, 제외된 강좌: %d건)", len(lectures), len(lectures)-excludedCount, excludedCount)
 }

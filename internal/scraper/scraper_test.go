@@ -18,6 +18,10 @@ type MockScraper struct {
 	ScrapeFunc   func(ctx context.Context) ([]domain.Lecture, error)
 }
 
+func (m *MockScraper) Name() string {
+	return "Mock"
+}
+
 func (m *MockScraper) Validate(ctx context.Context) error {
 	if m.ValidateFunc != nil {
 		return m.ValidateFunc(ctx)

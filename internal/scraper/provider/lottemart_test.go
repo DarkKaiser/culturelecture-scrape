@@ -57,6 +57,113 @@ func TestNewLottemart(t *testing.T) {
 	}
 }
 
+func TestLottemart_Name(t *testing.T) {
+	l, _ := NewLottemart(scraper.SearchCriteria{SearchYear: "2024", SearchSeasonCode: "1"})
+	if l.Name() != "롯데마트" {
+		t.Errorf("Lottemart.Name() = %v, want %v", l.Name(), "롯데마트")
+	}
+}
+
+func TestLottemart_Validate(t *testing.T) {
+	tests := []struct {
+		name          string
+		stores        map[string]string
+		lectureGroups map[string]map[string]string
+		handler       http.HandlerFunc
+		wantErr       bool
+	}{
+		{
+			name: "성공 - 점포와 강좌군 모두 유효함",
+			stores: map[string]string{
+				"0038": "송파점",
+			},
+			lectureGroups: map[string]map[string]string{
+				"baby-tit": {
+					"21": "음악감성",
+				},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusOK)
+
+				if strings.Contains(r.URL.Path, "courselist.do") {
+					w.Write([]byte(`
+						<html><body>
+							<div class="wrapper1"><div class="wrapper2"><div class="wrapper3">
+								<div id="baby-tit"></div>
+								<dd><ul><li><div>
+									<input value="21"> 음악감성
+								</div></li></ul></dd>
+							</div></div></div>
+						</body></html>
+					`))
+				} else if strings.Contains(r.URL.Path, "main.do") {
+					w.Write([]byte(`
+						<html><body>
+							<div id="contents">
+								<div class="branch_main-wrap">
+									<div class="branch_info-area">
+										<div class="branch_spot-area">
+											<h3>송파점</h3>
+										</div>
+									</div>
+								</div>
+							</div>
+						</body></html>
+					`))
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "실패 - 점포 검증 실패 (강좌군은 성공 가정)",
+			stores: map[string]string{
+				"9999": "없는점포",
+			},
+			lectureGroups: map[string]map[string]string{
+				"baby-tit": {
+					"21": "음악감성",
+				},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusOK)
+
+				if strings.Contains(r.URL.Path, "courselist.do") {
+					w.Write([]byte(`
+						<html><body>
+							<div class="wrapper1"><div class="wrapper2"><div class="wrapper3">
+								<div id="baby-tit"></div>
+								<dd><ul><li><div>
+									<input value="21"> 음악감성
+								</div></li></ul></dd>
+							</div></div></div>
+						</body></html>
+					`))
+				} else if strings.Contains(r.URL.Path, "main.do") {
+					w.Write([]byte(`<html><body></body></html>`)) // 텅 빈 결과
+				}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts, l := setupLottemartMockServer(tt.handler)
+			defer ts.Close()
+
+			l.stores = tt.stores
+			l.lectureGroups = tt.lectureGroups
+
+			err := l.Validate(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Lottemart.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestLottemart_validateStore(t *testing.T) {
 	tests := []struct {
 		name       string

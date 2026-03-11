@@ -18,10 +18,14 @@ import (
 // mockScraper 는 실제 HTTP 통신 없이 run() 함수의 동작을 검증하기 위한
 // 가짜(Mock) 스크래퍼입니다. Scraper 인터페이스를 구현합니다.
 type mockScraper struct {
-	lectures       []domain.Lecture
-	validateErr    error // Validate() 시 반환할 에러 (nil 이면 정상)
-	scrapeErr      error // Scrape() 시 반환할 에러 (nil 이면 정상)
-	scrapeCallCount int  // Scrape()가 호출된 횟수 (검증용)
+	lectures        []domain.Lecture
+	validateErr     error // Validate() 시 반환할 에러 (nil 이면 정상)
+	scrapeErr       error // Scrape() 시 반환할 에러 (nil 이면 정상)
+	scrapeCallCount int   // Scrape()가 호출된 횟수 (검증용)
+}
+
+func (m *mockScraper) Name() string {
+	return "Mock"
 }
 
 func (m *mockScraper) Validate(_ context.Context) error {

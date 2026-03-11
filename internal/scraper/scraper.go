@@ -27,6 +27,10 @@ type SearchCriteria struct {
 
 // Scraper 각 마트(이마트, 홈플러스, 롯데마트) 수집기가 공통으로 제공해야 할 기능들을 정의하는 인터페이스입니다.
 type Scraper interface {
+	// Name 각 스크래퍼가 로깅, 오류 추적 시 자신을 식별할 수 있도록 고유한 명칭을 반환합니다.
+	// (예: "이마트", "홈플러스", "롯데마트")
+	Name() string
+
 	// Validate 본격적인 강좌 수집 전에 설정이 올바른지 확인합니다.
 	// 예를 들어, 점포 코드가 실제로 존재하는지, API 토큰이 유효한지 등을 검사합니다.
 	// 설정에 문제가 있으면 error를 반환하여 잘못된 설정으로 수집이 진행되는 것을 사전에 방지합니다.
@@ -98,13 +102,17 @@ func Scrape(ctx context.Context, scrapers []Scraper) ([]domain.Lecture, error) {
 		sc := sc
 
 		scrapeGroup.Go(func() error {
+			log.Printf("%s 문화센터 강좌 수집을 시작합니다.", sc.Name())
+
 			// 해당 마트의 서버에서 강좌 목록을 가져옵니다.
 			batch, err := sc.Scrape(scrapeCtx)
 			if err != nil {
-				log.Printf("강좌 수집 중 오류가 발생하였습니다: %v", err)
+				log.Printf("%s 강좌 수집 중 오류가 발생하였습니다: %v", sc.Name(), err)
 
-				return fmt.Errorf("강좌 수집 중 오류가 발생하였습니다: %w", err)
+				return fmt.Errorf("%s 강좌 수집 중 오류가 발생하였습니다: %w", sc.Name(), err)
 			}
+
+			log.Printf("%s 문화센터 강좌 수집이 완료되었습니다. (수집 건수: %d건)", sc.Name(), len(batch))
 
 			// 수집이 완료된 강좌 목록을 공유 슬라이스에 추가합니다.
 			// Mutex로 잠근 후 추가하기 때문에 다른 수집기와 동시에 실행되어도 데이터가 뒤섞이지 않습니다.
@@ -122,7 +130,7 @@ func Scrape(ctx context.Context, scrapers []Scraper) ([]domain.Lecture, error) {
 		return lectures, err
 	}
 
-	log.Printf("문화센터 강좌 수집이 완료되었습니다. (수집된 강좌 수: %d개)", len(lectures))
+	log.Printf("문화센터 강좌 수집이 모두 완료되었습니다. (수집된 총 강좌 수: %d개)", len(lectures))
 
 	return lectures, nil
 }

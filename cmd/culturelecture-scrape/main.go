@@ -98,12 +98,12 @@ func run(args []string, mockScrapers ...scraper.Scraper) error {
 		return fmt.Errorf("검증 오류: 유효하지 않은 검색시즌입니다. 허용되는 값: 봄, 여름, 가을, 겨울 (입력값: %q)", searchSeason)
 	}
 
-	// 이마트 문화센터 API는 AWS AppSync 기반으로, 모든 요청에 Bearer 인증 토큰이 필요합니다.
-	// 유효 기간이 있어 토큰이 만료되면 설정 파일의 providers.emart.auth_token 값을 새 토큰으로 갱신해야 합니다.
+	// 이마트 문화센터 API는 AWS AppSync 기반으로, 모든 요청에 api-key 토큰이 필요합니다.
+	// 유효 기간이 있어 토큰이 만료되면 설정 파일의 providers.emart.api_key 값을 새 토큰으로 갱신해야 합니다.
 	// 설정 파일에 emart 섹션 자체가 없으면 빈 문자열로 처리합니다.(401 에러 발생)
-	emartAuthToken := ""
+	emartAPIKey := ""
 	if p, ok := cfg.Providers["emart"]; ok {
-		emartAuthToken = p["auth_token"]
+		emartAPIKey = p["api_key"]
 	}
 
 	// 이후 수집기들을 생성할 때 필요한 수집 조건(검색 연도, 시즌 등)들을 하나의 SearchCriteria 객체로 모아둡니다.
@@ -131,7 +131,7 @@ func run(args []string, mockScrapers ...scraper.Scraper) error {
 			return fmt.Errorf("초기화 오류: 롯데마트 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
 		}
 
-		em, err := provider.NewEmart(scraperCriteria, emartAuthToken)
+		em, err := provider.NewEmart(scraperCriteria, emartAPIKey)
 		if err != nil {
 			return fmt.Errorf("초기화 오류: 이마트 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
 		}

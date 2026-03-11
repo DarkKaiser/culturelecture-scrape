@@ -135,6 +135,10 @@ func NewLottemart(criteria scraper.SearchCriteria) (*Lottemart, error) {
 	}, nil
 }
 
+func (l *Lottemart) Name() string {
+	return l.name
+}
+
 // Validate 스크래핑 작업을 시작하기 전, 설정값이 실제 롯데마트 시스템과 정합성이 맞는지 사전 검증합니다.
 func (l *Lottemart) Validate(ctx context.Context) error {
 	// 수집 대상으로 설정된 각 강좌군이 롯데마트 강좌 목록 페이지의 실제 카테고리 메뉴에 존재하는지 확인합니다.

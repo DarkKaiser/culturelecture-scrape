@@ -26,7 +26,7 @@ func NewCSV(filename string) Exporter {
 
 // Export 수집된 강좌 목록을 CSV 파일로 저장합니다.
 func (e *csvExporter) Export(lectures []domain.Lecture) error {
-	log.Println("▶ 수집된 강좌 데이터를 CSV 포맷으로 내보내는 작업을 시작합니다.")
+	log.Println("수집된 강좌 데이터를 CSV 포맷으로 내보내는 작업을 시작합니다.")
 
 	// 파일이 이미 존재하면 덮어씁니다. 실패 시 권한 문제나 경로 오류일 가능성이 높습니다.
 	f, err := os.Create(e.filename)
@@ -88,7 +88,7 @@ func (e *csvExporter) Export(lectures []domain.Lecture) error {
 		return fmt.Errorf("파일 쓰기 오류: 메모리 버퍼에 남은 데이터를 CSV 파일로 최종 출력하는 데 실패하였습니다. 상세 오류: %v", err)
 	}
 
-	log.Printf("▶ 작업 완료: 총 %d건의 강좌 데이터가 CSV 파일(%s)에 성공적으로 저장되었습니다.", savedCount, e.filename)
+	log.Printf("총 %d건의 강좌 데이터를 CSV 파일(%s)에 성공적으로 저장하였습니다.", savedCount, e.filename)
 
 	return nil
 }

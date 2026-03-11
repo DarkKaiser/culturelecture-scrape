@@ -137,6 +137,10 @@ func NewHomeplus(criteria scraper.SearchCriteria) (*Homeplus, error) {
 	}, nil
 }
 
+func (h *Homeplus) Name() string {
+	return h.name
+}
+
 // Validate 스크래핑 작업을 시작하기 전, 설정값이 실제 홈플러스 시스템과 정합성이 맞는지 사전 검증합니다.
 func (h *Homeplus) Validate(ctx context.Context) error {
 	// 수집 대상으로 설정된 각 점포가 홈플러스 점포 API에 실제로 등록되어 있는지 확인합니다.
