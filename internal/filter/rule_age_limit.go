@@ -47,13 +47,18 @@ var (
 	// ------------------------------------------------------------------
 	// 아래 패턴들은 나이/개월 단위 구분 없이 항상 ageUnitYear로 처리됩니다.
 
-	elemGradeRangePattern = regexp.MustCompile(`초[1-6][~-]초[1-6]`)      // 초등학년 범위 (예: "초1~초3", "초2-초6")
-	year4ToYear4Pattern   = regexp.MustCompile(`[0-9]{4}년?~[0-9]{4}년생`) // 4자리 출생연도 범위 (예: "2010~2015년생")
-	year4ToYear2Pattern   = regexp.MustCompile(`[0-9]{4}년?~[0-9]{2}년생`) // 4자리~2자리 출생연도 범위 (예: "2010~15년생")
-	year2ToYear2Pattern   = regexp.MustCompile(`[0-9]{2}~[0-9]{2}년생?`)  // 2자리 출생연도 범위 (예: "10~15년생")
-	year4OverPattern      = regexp.MustCompile(`[0-9]{4}년생 이상`)         // 4자리 출생연도 이상 (예: "2010년생 이상")
-	year2OverPattern      = regexp.MustCompile(`[0-9]{2}년생 이상`)         // 2자리 출생연도 이상 (예: "10년생 이상")
-	adultToYear4Pattern   = regexp.MustCompile(`성인~[0-9]{4}년생?`)        // 성인부터 특정 출생연도까지 (예: "성인~2015년생")
+	elemGradeRangePattern = regexp.MustCompile(`초[1-6][~-]초[1-6]`)            // 초등학년 범위 (예: "초1~초3", "초2-초6")
+	year4ToYear4Pattern   = regexp.MustCompile(`[0-9]{4}년?~[0-9]{4}년생`)       // 4자리 출생연도 범위 (예: "2010~2015년생")
+	year4ToYear2Pattern   = regexp.MustCompile(`[0-9]{4}년?~[0-9]{2}년생`)       // 4자리~2자리 출생연도 범위 (예: "2010~15년생")
+	year2ToYear2Pattern   = regexp.MustCompile(`[0-9]{2}~[0-9]{2}년생?`)        // 2자리 출생연도 범위 (예: "10~15년생")
+	year4OverPattern      = regexp.MustCompile(`[0-9]{4}년생 이상`)               // 4자리 출생연도 이상 (예: "2010년생 이상")
+	year2OverPattern      = regexp.MustCompile(`[0-9]{2}년생 이상`)               // 2자리 출생연도 이상 (예: "10년생 이상")
+	adultToYear4Pattern   = regexp.MustCompile(`성인~[0-9]{4}년생?`)              // 성인부터 특정 4자리 출생연도까지 (예: "성인~2015년생")
+	adultToYear2Pattern   = regexp.MustCompile(`성인~[0-9]{2}년생?`)              // 성인부터 특정 2자리 출생연도까지 (예: "성인~17년생", "성인~17년")
+	monthToYear4Pattern   = regexp.MustCompile(`[0-9]{1,2}개월[~-][0-9]{4}년생?`) // N개월 ~ 4자리 출생연도 (예: "36개월~2015년생")
+	monthToYear2Pattern   = regexp.MustCompile(`[0-9]{1,2}개월[~-][0-9]{2}년생?`) // N개월 ~ 2자리 출생연도 (예: "36개월~15년생")
+	yearToYear4Pattern    = regexp.MustCompile(`[0-9]{1,2}세[~-][0-9]{4}년생?`)  // N세 ~ 4자리 출생연도 (예: "5세~2015년생")
+	yearToYear2Pattern    = regexp.MustCompile(`[0-9]{1,2}세[~-][0-9]{2}년생?`)  // N세 ~ 2자리 출생연도 (예: "5세~15년생")
 )
 
 // init 강좌명에서 연령 정보를 분석해내기 위한 다양한 정규식 패턴 세트들을 미리 구성해 둡니다.
@@ -449,6 +454,114 @@ func extractAgeRange(lecture *domain.Lecture) (ageUnit, int, int, error) {
 		}
 
 		return ageUnitYear, now.Year() - birthYear + 1, math.MaxInt32, nil
+	}
+
+	// ------------------------------------------------------------------
+	// [고정 패턴 8] 성인~nn년, 성인~nn년생 — 성인부터 특정 2자리 출생연도까지
+	// ------------------------------------------------------------------
+
+	// 매칭 예: "성인~17년생", "성인~17년"
+	match = adultToYear2Pattern.FindString(lecture.Title)
+	if len(match) > 0 {
+		parts := strings.Split(strings.ReplaceAll(strings.ReplaceAll(match, "년생", ""), "년", ""), "~")
+
+		// parts[0]은 "성인"(문자열), parts[1]이 출생연도 2자리 숫자입니다.
+		birthYear, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+
+		// 2자리 연도(예: "17")는 2000년대생으로 간주하여 2000을 더해 보정한 뒤 역산합니다.
+		return ageUnitYear, now.Year() - (2000 + birthYear) + 1, math.MaxInt32, nil
+	}
+
+	// ------------------------------------------------------------------
+	// [고정 패턴 9] nn개월~nnnn년, nn개월~nnnn년생 — N개월부터 특정 출생연도까지
+	// ------------------------------------------------------------------
+
+	// 매칭 예: "36개월~2015년생"
+	match = monthToYear4Pattern.FindString(lecture.Title)
+	if len(match) > 0 {
+		parts := strings.Split(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(match, "년생", ""), "년", ""), "-", "~"), "~")
+
+		minMonth, err := strconv.Atoi(strings.ReplaceAll(parts[0], "개월", ""))
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+		birthYear, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+
+		// 상한은 나이로 계산 후 개월 수(나이 * 12)로 변환하여 단위를 일치시킵니다.
+		maxMonth := (now.Year() - birthYear + 1) * 12
+
+		return ageUnitMonth, minMonth, maxMonth, nil
+	}
+
+	// ------------------------------------------------------------------
+	// [고정 패턴 10] nn개월~nn년, nn개월~nn년생 — N개월부터 특정 2자리 출생연도까지
+	// ------------------------------------------------------------------
+
+	// 매칭 예: "36개월~15년생"
+	match = monthToYear2Pattern.FindString(lecture.Title)
+	if len(match) > 0 {
+		parts := strings.Split(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(match, "년생", ""), "년", ""), "-", "~"), "~")
+
+		minMonth, err := strconv.Atoi(strings.ReplaceAll(parts[0], "개월", ""))
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+		birthYear, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+
+		maxMonth := (now.Year() - (2000 + birthYear) + 1) * 12
+
+		return ageUnitMonth, minMonth, maxMonth, nil
+	}
+
+	// ------------------------------------------------------------------
+	// [고정 패턴 11] nn세~nnnn년, nn세~nnnn년생 — N세부터 특정 출생연도까지
+	// ------------------------------------------------------------------
+
+	// 매칭 예: "5세~2015년생"
+	match = yearToYear4Pattern.FindString(lecture.Title)
+	if len(match) > 0 {
+		parts := strings.Split(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(match, "년생", ""), "년", ""), "-", "~"), "~")
+
+		minAge, err := strconv.Atoi(strings.ReplaceAll(parts[0], "세", ""))
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+		birthYear, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+
+		return ageUnitYear, minAge, now.Year() - birthYear + 1, nil
+	}
+
+	// ------------------------------------------------------------------
+	// [고정 패턴 12] nn세~nn년, nn세~nn년생 — N세부터 특정 2자리 출생연도까지
+	// ------------------------------------------------------------------
+
+	// 매칭 예: "5세~15년생"
+	match = yearToYear2Pattern.FindString(lecture.Title)
+	if len(match) > 0 {
+		parts := strings.Split(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(match, "년생", ""), "년", ""), "-", "~"), "~")
+
+		minAge, err := strconv.Atoi(strings.ReplaceAll(parts[0], "세", ""))
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+		birthYear, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return ageUnitUnknown, 0, 0, err
+		}
+
+		return ageUnitYear, minAge, now.Year() - (2000 + birthYear) + 1, nil
 	}
 
 	// ------------------------------------------------------------------

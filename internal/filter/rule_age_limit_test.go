@@ -128,6 +128,62 @@ func TestExtractAgeRange(t *testing.T) {
 			wantMaxAge: math.MaxInt32,
 			wantErr:    false,
 		},
+		{
+			name:       "Fixed8_Adult_To_Year2",
+			title:      "월ㅣ강명헌의 통기타(성인~17년생) A ♥개강확정)",
+			wantUnit:   ageUnitYear,
+			wantMinAge: currentYear - 2017 + 1,
+			wantMaxAge: math.MaxInt32,
+			wantErr:    false,
+		},
+		{
+			name:       "Fixed8_Adult_To_Year2_Short",
+			title:      "월ㅣ강명헌의 통기타(성인~17년) A ♥개강확정)",
+			wantUnit:   ageUnitYear,
+			wantMinAge: currentYear - 2017 + 1,
+			wantMaxAge: math.MaxInt32,
+			wantErr:    false,
+		},
+
+		// ------------------------------------------------------------------
+		// [고정 패턴 9, 10] 개월 ~ 출생연도 범위 (동적 계산)
+		// ------------------------------------------------------------------
+		{
+			name:       "Fixed9_Month_To_Year4",
+			title:      "재미있는 놀이 (36개월~2015년생)",
+			wantUnit:   ageUnitMonth,
+			wantMinAge: 36,
+			wantMaxAge: (currentYear - 2015 + 1) * 12,
+			wantErr:    false,
+		},
+		{
+			name:       "Fixed10_Month_To_Year2",
+			title:      "놀이체육 (36개월-14년생)",
+			wantUnit:   ageUnitMonth,
+			wantMinAge: 36,
+			wantMaxAge: (currentYear - 2014 + 1) * 12,
+			wantErr:    false,
+		},
+
+		// ------------------------------------------------------------------
+		// [고정 패턴 11, 12] 나이(세) ~ 출생연도 범위 (동적 계산)
+		// ------------------------------------------------------------------
+		{
+			name:       "Fixed11_Year_To_Year4",
+			title:      "코딩 입문 (5세~2015년생)",
+			wantUnit:   ageUnitYear,
+			wantMinAge: 5,
+			wantMaxAge: currentYear - 2015 + 1,
+			wantErr:    false,
+		},
+		{
+			name:       "Fixed12_Year_To_Year2",
+			title:      "어린이 바둑 (5세-15년생)",
+			wantUnit:   ageUnitYear,
+			wantMinAge: 5,
+			wantMaxAge: currentYear - 2015 + 1,
+			wantErr:    false,
+		},
 
 		// ------------------------------------------------------------------
 		// [특정 키워드 매핑]
