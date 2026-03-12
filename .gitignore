@@ -23,5 +23,3 @@ logs/
 # 결과 파일
 culturelecture-scrape.xlsx
 culturelecture-scrape-*.csv
-
-coverage
