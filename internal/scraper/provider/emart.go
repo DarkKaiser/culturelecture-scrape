@@ -204,7 +204,7 @@ func NewEmart(criteria scraper.SearchCriteria, apiKey string) (*Emart, error) {
 	return &Emart{
 		name:           "이마트",
 		cultureBaseURL: "https://www.cultureclub.emart.com",
-		apiBaseURL:     "https://tjcdarnuonge5epm44y2nvckk4.appsync-api.ap-northeast-2.amazonaws.com/graphql",
+		apiBaseURL:     "https://wrihg4edszhmvagptse4t4eggi.appsync-api.ap-northeast-2.amazonaws.com/graphql",
 		fetcher:        scraper.NewFetcher(),
 
 		apiKey: apiKey,
