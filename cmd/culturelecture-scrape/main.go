@@ -121,10 +121,11 @@ func run(args []string, mockScrapers ...scraper.Scraper) error {
 	if len(mockScrapers) > 0 {
 		scrapers = mockScrapers
 	} else {
-		hp, err := provider.NewHomeplus(scraperCriteria)
-		if err != nil {
-			return fmt.Errorf("초기화 오류: 홈플러스 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
-		}
+		// 홈플러스 문화센터 사업 공식 종료(2026.09.30)에 따라 수집 대상에서 비활성화합니다.
+		// hp, err := provider.NewHomeplus(scraperCriteria)
+		// if err != nil {
+		// 	return fmt.Errorf("초기화 오류: 홈플러스 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
+		// }
 
 		lm, err := provider.NewLottemart(scraperCriteria)
 		if err != nil {
@@ -136,7 +137,7 @@ func run(args []string, mockScrapers ...scraper.Scraper) error {
 			return fmt.Errorf("초기화 오류: 이마트 수집기(Scraper)를 구성할 수 없습니다. 상세 오류: %v", err)
 		}
 
-		scrapers = []scraper.Scraper{hp, lm, em}
+		scrapers = []scraper.Scraper{lm, em}
 	}
 
 	// ------------------------------------------------------------------
